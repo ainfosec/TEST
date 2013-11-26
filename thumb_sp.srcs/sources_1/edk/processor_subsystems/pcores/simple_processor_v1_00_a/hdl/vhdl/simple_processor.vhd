@@ -1,57 +1,15 @@
-----------------------------------------------------------------------------
--- simple_processor.vhd - entity/architecture pair
-------------------------------------------------------------------------------
---
--- ***************************************************************************
--- ** Copyright (c) 1995-2012 Xilinx, Inc.  All rights reserved.            **
--- **                                                                       **
--- ** Xilinx, Inc.                                                          **
--- ** XILINX IS PROVIDING THIS DESIGN, CODE, OR INFORMATION "AS IS"         **
--- ** AS A COURTESY TO YOU, SOLELY FOR USE IN DEVELOPING PROGRAMS AND       **
--- ** SOLUTIONS FOR XILINX DEVICES.  BY PROVIDING THIS DESIGN, CODE,        **
--- ** OR INFORMATION AS ONE POSSIBLE IMPLEMENTATION OF THIS FEATURE,        **
--- ** APPLICATION OR STANDARD, XILINX IS MAKING NO REPRESENTATION           **
--- ** THAT THIS IMPLEMENTATION IS FREE FROM ANY CLAIMS OF INFRINGEMENT,     **
--- ** AND YOU ARE RESPONSIBLE FOR OBTAINING ANY RIGHTS YOU MAY REQUIRE      **
--- ** FOR YOUR IMPLEMENTATION.  XILINX EXPRESSLY DISCLAIMS ANY              **
--- ** WARRANTY WHATSOEVER WITH RESPECT TO THE ADEQUACY OF THE               **
--- ** IMPLEMENTATION, INCLUDING BUT NOT LIMITED TO ANY WARRANTIES OR        **
--- ** REPRESENTATIONS THAT THIS IMPLEMENTATION IS FREE FROM CLAIMS OF       **
--- ** INFRINGEMENT, IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS       **
--- ** FOR A PARTICULAR PURPOSE.                                             **
--- **                                                                       **
--- ***************************************************************************
---
-------------------------------------------------------------------------------
 -- Filename:          simple_processor.vhd
 -- Version:           1.00.a
--- Description:       Top level design, instantiates library components and user logic.
--- Date:              Wed Oct 09 18:48:52 2013 (by Create and Import Peripheral Wizard)
+-- Description:       Simple ARM Thumb(R) processor
+-- Date Created:      Wed, Nov 13, 2013 20:59:21
+-- Last Modified:     Tue, Nov 19, 2013 15:48:47
 -- VHDL Standard:     VHDL'93
-------------------------------------------------------------------------------
--- Naming Conventions:
---   active low signals:                    "*_n"
---   clock signals:                         "clk", "clk_div#", "clk_#x"
---   reset signals:                         "rst", "rst_n"
---   generics:                              "C_*"
---   user defined types:                    "*_TYPE"
---   state machine next state:              "*_ns"
---   state machine current state:           "*_cs"
---   combinatorial signals:                 "*_com"
---   pipelined or register delay signals:   "*_d#"
---   counter signals:                       "*cnt*"
---   clock enable signals:                  "*_ce"
---   internal version of output port:       "*_i"
---   device pins:                           "*_pin"
---   ports:                                 "- Names begin with Uppercase"
---   processes:                             "*_PROCESS"
---   component instantiations:              "<ENTITY_>I_<#|FUNC>"
-------------------------------------------------------------------------------
+-- Author:            Sean McClain <mcclains@ainfosec.com>
+-- Copyright:         (c) 2013 Assured Information Security, All Rights Reserved
 
 library ieee;
 use ieee.std_logic_1164.all;
-use ieee.std_logic_arith.all;
-use ieee.std_logic_unsigned.all;
+use ieee.numeric_std.all;
 
 library proc_common_v3_00_a;
 use proc_common_v3_00_a.proc_common_pkg.all;
@@ -65,57 +23,19 @@ library simple_processor_v1_00_a;
 use simple_processor_v1_00_a.alu;
 use simple_processor_v1_00_a.decoder;
 use simple_processor_v1_00_a.reg_file;
+use simple_processor_v1_00_a.opcodes.all;
 
-------------------------------------------------------------------------------
--- Entity section
-------------------------------------------------------------------------------
--- Definition of Generics:
---   C_S_AXI_DATA_WIDTH           -- AXI4LITE slave: Data width
---   C_S_AXI_ADDR_WIDTH           -- AXI4LITE slave: Address Width
---   C_S_AXI_MIN_SIZE             -- AXI4LITE slave: Min Size
---   C_USE_WSTRB                  -- AXI4LITE slave: Write Strobe
---   C_DPHASE_TIMEOUT             -- AXI4LITE slave: Data Phase Timeout
---   C_BASEADDR                   -- AXI4LITE slave: base address
---   C_HIGHADDR                   -- AXI4LITE slave: high address
---   C_FAMILY                     -- FPGA Family
---   C_NUM_REG                    -- Number of software accessible registers
---   C_NUM_MEM                    -- Number of address-ranges
---   C_SLV_AWIDTH                 -- Slave interface address bus width
---   C_SLV_DWIDTH                 -- Slave interface data bus width
-
--- Definition of User Generics:
-
--- Definition of Ports:
---   S_AXI_ACLK                   -- AXI4LITE slave: Clock
---   S_AXI_ARESETN                -- AXI4LITE slave: Reset
---   S_AXI_AWADDR                 -- AXI4LITE slave: Write address
---   S_AXI_AWVALID                -- AXI4LITE slave: Write address valid
---   S_AXI_WDATA                  -- AXI4LITE slave: Write data
---   S_AXI_WSTRB                  -- AXI4LITE slave: Write strobe
---   S_AXI_WVALID                 -- AXI4LITE slave: Write data valid
---   S_AXI_BREADY                 -- AXI4LITE slave: Response ready
---   S_AXI_ARADDR                 -- AXI4LITE slave: Read address
---   S_AXI_ARVALID                -- AXI4LITE slave: Read address valid
---   S_AXI_RREADY                 -- AXI4LITE slave: Read data ready
---   S_AXI_ARREADY                -- AXI4LITE slave: read addres ready
---   S_AXI_RDATA                  -- AXI4LITE slave: Read data
---   S_AXI_RRESP                  -- AXI4LITE slave: Read data response
---   S_AXI_RVALID                 -- AXI4LITE slave: Read data valid
---   S_AXI_WREADY                 -- AXI4LITE slave: Write data ready
---   S_AXI_BRESP                  -- AXI4LITE slave: Response
---   S_AXI_BVALID                 -- AXI4LITE slave: Resonse valid
---   S_AXI_AWREADY                -- AXI4LITE slave: Wrte address ready
-
--- Definition of User Ports:
-
-------------------------------------------------------------------------------
-
-entity simple_processor is
+---
+-- A single instruction ARM Thumb(R) processor with no flow control
+--  or branching.
+-- This includes a Xilinx(R) AXI4Lite controller, and support from accessing
+--  register values from Xilinx EDK(R).
+---
+entity simple_processor
+is
   generic
   (
-    -- user generics
-
-    -- built-in generics
+    -- These are all used by the AXI4_Lite controller
     C_S_AXI_DATA_WIDTH       : integer            := 32;
     C_S_AXI_ADDR_WIDTH       : integer            := 32;
     C_S_AXI_MIN_SIZE         : std_logic_vector   := X"000001FF";
@@ -131,9 +51,7 @@ entity simple_processor is
   );
   port
   (
-    -- user ports
-
-    -- built-in ports
+    -- These are all used by the AXI4_Lite controller
     S_AXI_ACLK               : in    std_logic;
     S_AXI_ARESETN            : in    std_logic;
     S_AXI_AWADDR             : in    std_logic_vector (
@@ -165,6 +83,7 @@ entity simple_processor is
     S_AXI_AWREADY            : out   std_logic
   );
 
+  -- Xilinx EDK(R) configuration parameters
   attribute MAX_FANOUT                  : string;
   attribute SIGIS                       : string;
   attribute MAX_FANOUT of S_AXI_ACLK    : signal is "10000";
@@ -174,12 +93,11 @@ entity simple_processor is
 
 end entity simple_processor;
 
-------------------------------------------------------------------------------
--- Architecture section
-------------------------------------------------------------------------------
+architecture IMP of simple_processor
+is
 
-architecture IMP of simple_processor is
-
+  -- These constants were provided by Xilinx EDK(R) for use with their
+  --  AXI4_Lite controller and Reset peripherals.
   constant USER_SLV_DWIDTH   : integer          := C_SLV_DWIDTH;
   constant IPIF_SLV_DWIDTH   : integer          := C_SLV_DWIDTH;
   constant ZERO_ADDR_PAD     : std_logic_vector(0 to 31) := (others => '0');
@@ -187,7 +105,6 @@ architecture IMP of simple_processor is
   constant RST_HIGHADDR      : std_logic_vector := C_BASEADDR or X"000001FF";
   constant USER_SLV_BASEADDR : std_logic_vector := C_BASEADDR or X"00000000";
   constant USER_SLV_HIGHADDR : std_logic_vector := C_BASEADDR or X"000000FF";
-
   constant IPIF_ARD_ADDR_RANGE_ARRAY : SLV64_ARRAY_TYPE :=
   (
     ZERO_ADDR_PAD & RST_BASEADDR,      -- soft reset space base address
@@ -195,29 +112,30 @@ architecture IMP of simple_processor is
     ZERO_ADDR_PAD & USER_SLV_BASEADDR, -- user logic slave space base address
     ZERO_ADDR_PAD & USER_SLV_HIGHADDR  -- user logic slave space high address
   );
-
   constant RST_NUM_CE        : integer := 1;
   constant USER_SLV_NUM_REG  : integer := C_NUM_REG;
   constant USER_NUM_REG      : integer := USER_SLV_NUM_REG;
   constant TOTAL_IPIF_CE     : integer := USER_NUM_REG + RST_NUM_CE;
-
   constant IPIF_ARD_NUM_CE_ARRAY : INTEGER_ARRAY_TYPE :=
   (
     0  => (RST_NUM_CE),      -- number of ce for soft reset space
     1  => (USER_SLV_NUM_REG) -- number of ce for user logic slave space
   );
-
   constant RESET_WIDTH       : integer          := 8;
   constant RST_CS_INDEX      : integer          := 0;
   constant RST_CE_INDEX      : integer          := USER_NUM_REG;
   constant USER_SLV_CS_INDEX : integer          := 1;
-  constant USER_SLV_CE_INDEX : integer          := calc_start_ce_index(IPIF_ARD_NUM_CE_ARRAY, USER_SLV_CS_INDEX);
-
+  constant USER_SLV_CE_INDEX : integer          := calc_start_ce_index (
+      IPIF_ARD_NUM_CE_ARRAY, USER_SLV_CS_INDEX
+      );
   constant USER_CE_INDEX     : integer          := USER_SLV_CE_INDEX;
 
-  ------------------------------------------
-  -- IP Interconnect (IPIC) signal declarations
-  ------------------------------------------
+  -- total number of data and memory registers, plus 7 special purpose registers
+  -- minimum 53
+  constant NUM_REG_FILE_REGS : integer := 293;
+
+  -- These signals were provided by Xilinx EDK(R) for use with their
+  --  AXI4_Lite controller and Reset peripherals.
   signal ipif_Bus2IP_Clk     : std_logic;
   signal ipif_Bus2IP_Resetn  : std_logic;
   signal ipif_Bus2IP_Addr    : std_logic_vector(C_S_AXI_ADDR_WIDTH-1 downto 0);
@@ -248,14 +166,73 @@ architecture IMP of simple_processor is
   signal user_IP2Bus_RdAck   : std_logic;
   signal user_IP2Bus_WrAck   : std_logic;
   signal user_IP2Bus_Error   : std_logic;
-  signal dummy_vector        : std_logic_vector(USER_SLV_DWIDTH-1 downto 0);
-  signal dummy               : std_logic;
+
+  -- for sending data back to Xilinx EDK(R)
+  signal soft_addr_w         : std_logic_vector(C_NUM_REG-1 downto 0);
+  signal soft_addr_r         : std_logic_vector(C_NUM_REG-1 downto 0);
+
+  -- convenience variable, for comparisons
+  signal zero                : std_logic_vector(31 downto 0);
+
+  -- current processing state
+  signal state               : integer;
+
+  -- acknowledgements to drive the state machine
+  signal reg_file_reset_ack  : std_logic;
+  signal alu_reset_ack       : std_logic;
+  signal send_inst_ack       : std_logic;
+  signal decode_ack          : std_logic;
+  signal load_ack            : std_logic;
+  signal math_ack            : std_logic;
+  signal store_ack           : std_logic;
+
+  -- raw binary for the current instruction
+  signal raw_instruction     : std_logic_vector(15 downto 0);
+
+  -- decoded instruction
+  signal opcode              : integer;
+
+  -- hint for the decoded instruction's functionality
+  signal op_type             : integer;
+
+  -- argument register addresses m, n, source, and dest
+  signal Rm                  : std_logic_vector(2 downto 0);
+  signal Rn                  : std_logic_vector(2 downto 0);
+  signal Rs                  : std_logic_vector(2 downto 0);
+  signal Rd                  : std_logic_vector(2 downto 0);
+
+  -- immediate values hard-coded in the raw instruction binary
+  signal Imm_3               : std_logic_vector(2 downto 0);
+  signal Imm_5               : std_logic_vector(4 downto 0);
+  signal Imm_8               : std_logic_vector(7 downto 0);
+  signal Imm_11              : std_logic_vector(10 downto 0);
+
+  -- decoded condition
+  signal condition           : std_logic_vector(15 downto 0);
+
+  -- flag used by push/pop
+  signal flag_lr_pc          : std_logic;
+
+  -- flags used to access registers 8-15
+  signal flags_h             : std_logic_vector(1 downto 0);
+
+  -- flags set by the last ALU operation representing
+  --  negative, zero, carry, overflow
+  signal flag_n              : std_logic;
+  signal flag_z              : std_logic;
+  signal flag_c              : std_logic;
+  signal flag_v              : std_logic;
+
+  -- 2 arguments and return value for ALU
+  signal alu_a               : std_logic_vector(31 downto 0);
+  signal alu_b               : std_logic_vector(31 downto 0);
+  signal alu_out             : std_logic_vector(31 downto 0);
 
 begin
 
-  ------------------------------------------
-  -- instantiate axi_lite_ipif
-  ------------------------------------------
+  ---
+  -- Xilinx(R) provided AXI4_Lite controller
+  ---
   AXI_LITE_IPIF_I : entity axi_lite_ipif_v1_01_a.axi_lite_ipif
     generic map
     (
@@ -304,9 +281,9 @@ begin
       IP2Bus_Data            => ipif_IP2Bus_Data
     );
 
-  ------------------------------------------
-  -- instantiate soft_reset
-  ------------------------------------------
+  ---
+  -- Xilinx(R) provided reset peripheral
+  ---
   SOFT_RESET_I : entity proc_common_v3_00_a.soft_reset
     generic map
     (
@@ -326,100 +303,134 @@ begin
       Reset2Bus_ToutSup      => open
     );
 
-  ------------------------------------------
-  -- instantiate ALU
-  ------------------------------------------
-  ALU_I : entity simple_processor_v1_00_a.alu
-    generic map
-    (
-      -- map user generics
-
-      -- map built-in generics
-      C_NUM_REG              => USER_NUM_REG,
-      C_SLV_DWIDTH           => USER_SLV_DWIDTH
-    )
+  ---
+  --
+  ---
+  STATE_MACHINE_I : entity simple_processor_v1_00_a.state_machine
     port map
     (
-      -- map user ports
-
-      -- map built-in ports
-      Bus2IP_Clk             => ipif_Bus2IP_Clk,
-      Bus2IP_Resetn          => rst_Bus2IP_Reset_tmp,
-      Bus2IP_Data            => ipif_Bus2IP_Data,
-      Bus2IP_BE              => ipif_Bus2IP_BE,
-      Bus2IP_RdCE            => user_Bus2IP_RdCE,
-      Bus2IP_WrCE            => user_Bus2IP_WrCE,
-      IP2Bus_Data            => dummy_vector,
-      IP2Bus_RdAck           => dummy,
-      IP2Bus_WrAck           => dummy,
-      IP2Bus_Error           => dummy
+      reg_file_reset_ack     => reg_file_reset_ack,
+      alu_reset_ack          => alu_reset_ack,
+      send_inst_ack          => send_inst_ack,
+      decode_ack             => decode_ack,
+      load_ack               => load_ack,
+      math_ack               => math_ack,
+      store_ack              => store_ack,
+      soft_write_ack         => user_IP2Bus_WrAck,
+      soft_read_ack          => user_IP2Bus_RdAck,
+      state                  => state,
+      Clk                    => ipif_Bus2IP_Clk,
+      Reset                  => rst_Bus2IP_Reset
     );
 
-  ------------------------------------------
-  -- instantiate Decoder
-  ------------------------------------------
-  DECODER_I : entity simple_processor_v1_00_a.decoder
-    generic map
-    (
-      -- map user generics
-
-      -- map built-in generics
-      C_NUM_REG              => USER_NUM_REG,
-      C_SLV_DWIDTH           => USER_SLV_DWIDTH
-    )
-    port map
-    (
-      -- map user ports
-
-      -- map built-in ports
-      Bus2IP_Clk             => ipif_Bus2IP_Clk,
-      Bus2IP_Resetn          => rst_Bus2IP_Reset_tmp,
-      Bus2IP_Data            => ipif_Bus2IP_Data,
-      Bus2IP_BE              => ipif_Bus2IP_BE,
-      Bus2IP_RdCE            => user_Bus2IP_RdCE,
-      Bus2IP_WrCE            => user_Bus2IP_WrCE,
-      IP2Bus_Data            => dummy_vector,
-      IP2Bus_RdAck           => dummy,
-      IP2Bus_WrAck           => dummy,
-      IP2Bus_Error           => dummy
-    );
-
-  ------------------------------------------
-  -- instantiate Register File
-  ------------------------------------------
+  ---
+  -- Register file, containing both registers and data memory
+  ---
   REG_FILE_I : entity simple_processor_v1_00_a.reg_file
     generic map
     (
-      -- map user generics
-
-      -- map built-in generics
-      C_NUM_REG              => USER_NUM_REG,
-      C_SLV_DWIDTH           => USER_SLV_DWIDTH
+      num_regs               => NUM_REG_FILE_REGS,
+      soft_address_width     => C_NUM_REG,
+      data_width             => C_SLV_DWIDTH
     )
     port map
     (
-      -- map user ports
-
-      -- map built-in ports
-      Bus2IP_Clk             => ipif_Bus2IP_Clk,
-      Bus2IP_Resetn          => rst_Bus2IP_Reset_tmp,
-      Bus2IP_Data            => ipif_Bus2IP_Data,
-      Bus2IP_BE              => ipif_Bus2IP_BE,
-      Bus2IP_RdCE            => user_Bus2IP_RdCE,
-      Bus2IP_WrCE            => user_Bus2IP_WrCE,
-      IP2Bus_Data            => user_IP2Bus_Data,
-      IP2Bus_RdAck           => user_IP2Bus_RdAck,
-      IP2Bus_WrAck           => user_IP2Bus_WrAck,
-      IP2Bus_Error           => user_IP2Bus_Error
+      instruction            => raw_instruction,
+      opcode                 => opcode,
+      op_type                => op_type,
+      Rm                     => Rm,
+      Rn                     => Rn,
+      Rs                     => Rs,
+      Rd                     => Rd,
+      Imm_3                  => Imm_3,
+      Imm_5                  => Imm_5,
+      Imm_8                  => Imm_8,
+      Imm_11                 => Imm_11,
+      zero                   => zero,
+      flag_lr_pc             => flag_lr_pc,
+      flags_h                => flags_h,
+      alu_out                => alu_out,
+      flag_n                 => flag_n,
+      flag_z                 => flag_z,
+      flag_c                 => flag_c,
+      flag_v                 => flag_v,
+      alu_a                  => alu_a,
+      alu_b                  => alu_b,
+      soft_addr_r            => soft_addr_r,
+      soft_addr_w            => soft_addr_w,
+      soft_data_i            => ipif_Bus2IP_Data,
+      soft_data_o            => user_IP2Bus_Data,
+      reg_file_reset_ack     => reg_file_reset_ack,
+      send_inst_ack          => send_inst_ack,
+      load_ack               => load_ack,
+      store_ack              => store_ack,
+      soft_read_ack          => user_IP2Bus_RdAck,
+      soft_write_ack         => user_IP2Bus_WrAck,
+      state                  => state
     );
 
-  ------------------------------------------
-  -- connect internal signals
-  ------------------------------------------
-  IP2BUS_DATA_MUX_PROC : process( ipif_Bus2IP_CS, user_IP2Bus_Data ) is
+  ---
+  -- ARM Thumb(R) decoder
+  ---
+  DECODER_I : entity simple_processor_v1_00_a.decoder
+    generic map
+    (
+      data_width             => 32
+    )
+    port map
+    (
+      data                   => raw_instruction,
+      condition              => condition,
+      opcode                 => opcode,
+      op_type                => op_type,
+      Rm                     => Rm,
+      Rn                     => Rn,
+      Rs                     => Rs,
+      Rd                     => Rd,
+      Imm_3                  => Imm_3,
+      Imm_5                  => Imm_5,
+      Imm_8                  => Imm_8,
+      Imm_11                 => Imm_11,
+      zero                   => zero,
+      flag_lr_pc             => flag_lr_pc,
+      flags_h                => flags_h,
+      decode_ack             => decode_ack,
+      state                  => state
+    );
+
+  ---
+  -- Arithmetic Logical Unit
+  ---
+  ALU_I : entity simple_processor_v1_00_a.alu
+    generic map
+    (
+      data_width             => 32
+    )
+    port map
+    (
+      a                      => alu_a,
+      b                      => alu_b,
+      zero                   => zero,
+      opcode                 => opcode,
+      result                 => alu_out,
+      n                      => flag_n,
+      z                      => flag_z,
+      c                      => flag_c,
+      v                      => flag_v,
+      alu_reset_ack          => alu_reset_ack,
+      math_ack               => math_ack,
+      state                  => state
+  );
+
+  ---
+  -- Xilinx(R) provided procedure for selecting data to send back to EDK(R)
+  ---
+  IP2BUS_DATA_MUX_PROC : process( ipif_Bus2IP_CS, user_IP2Bus_Data )
+  is
   begin
 
-    case ipif_Bus2IP_CS (1 downto 0)  is
+    case ipif_Bus2IP_CS (1 downto 0)
+    is
       when "01"   => ipif_IP2Bus_Data <= user_IP2Bus_Data;
       when "10"   => ipif_IP2Bus_Data <= (others => '0');
       when others => ipif_IP2Bus_Data <= (others => '0');
@@ -427,6 +438,8 @@ begin
 
   end process IP2BUS_DATA_MUX_PROC;
 
+  -- The following code is provided by Xilinx(R) to aid its AXI4_Lite peripheral
+  --  in relaying data back to EDK(R)
   ipif_IP2Bus_WrAck    <= user_IP2Bus_WrAck or rst_IP2Bus_WrAck;
   ipif_IP2Bus_RdAck    <= user_IP2Bus_RdAck;
   ipif_IP2Bus_Error    <= user_IP2Bus_Error or rst_IP2Bus_Error;

@@ -110,16 +110,13 @@ begin
     RESET_EVENT : if state = DO_ALU_RESET
     then
 
-      -- flag about to clear arithmetic flags
-      alu_reset_ack <= '0';
-
       -- clear flags
       n_l <= '0';
       z_l <= '0';
       c_l <= '0';
       v_l <= '0';
 
-      -- flag arithmetic flags clear
+      -- let the state machine know we're done resetting
       alu_reset_ack <= '1';
 
     end if RESET_EVENT;
@@ -127,9 +124,6 @@ begin
     -- perform arithmetic
     MATH_EVENT : if state = DO_MATH
     then
-
-      -- flag beginning of arithmetic work
-      math_ack <= '0';
 
       -- default values
       result_tmp := (others => '0');
@@ -429,10 +423,17 @@ begin
       -- copy our result on out
       result <= result_tmp;
 
-      -- flag end of arithmetic work
+      -- let the state machine know arithmetic work is done
       math_ack <= '1';
 
     end if MATH_EVENT;
+
+    -- reset state machine outputs
+    CLEAR_FLAGS_EVENT : if state = DO_CLEAR_FLAGS
+    then
+      alu_reset_ack <= '0';
+      math_ack      <= '0';
+    end if;
 
   end process DO_UPDATE;
 

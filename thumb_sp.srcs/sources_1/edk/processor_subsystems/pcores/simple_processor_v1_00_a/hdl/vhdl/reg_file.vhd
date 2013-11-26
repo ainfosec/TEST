@@ -187,10 +187,13 @@ is
   -- stack pointer
   signal sp          : integer range MEM_BOUND to num_regs-16;
 
+  -- stores the last sent in instruction (to prevent bounce)
+  signal last_inst   : std_logic_vector(15 downto 0);
+
 begin
 
   -- perform all operations that retrive values from the registers and memory
-  DO_LOAD_PROC : process ( state )
+  DO_UPDATE : process ( state )
   is
     variable a_l    : std_logic_vector(data_width-1 downto 0);
     variable b_l    : std_logic_vector(data_width-1 downto 0);
@@ -200,9 +203,6 @@ begin
     -- load values to be sent to the ALU
     LOAD_EVENT : if state = DO_LOAD
     then
-
-      -- flag beginning of load work
-      load_ack <= '0';
 
       -- update alu outputs and perform load/store operations
       case op_type
@@ -453,7 +453,7 @@ begin
       alu_a   <= a_l;
       alu_b   <= b_l;
 
-      -- flag end of load work
+      -- let the state machine know load work is done
       load_ack <= '1';
 
     end if LOAD_EVENT;
@@ -461,9 +461,6 @@ begin
     -- read from a register to Xilinx(R) EDK software
     SOFT_READ_EVENT : if state = DO_SOFT_READ
     then
-
-      -- flag beginning of software read work
-      soft_read_ack <= '0';
 
       -- decode the read ID
       temp_i := 0;
@@ -479,37 +476,34 @@ begin
         end if;
       end loop;
 
-      -- flag end of software read work
+      -- let the state machine know software read work is done
       soft_read_ack <= '1';
 
     end if SOFT_READ_EVENT;
-
-  end process DO_LOAD_PROC;
-
-  -- perform all operations that modify the registers and memory
-  DO_STORE_PROC : process ( state )
-  is
-    variable temp_i : integer;
-  begin
 
     -- initialize component
     RESET_EVENT : if state = DO_REG_FILE_RESET
     then
 
-      -- flag beginning of reset work
-      reg_file_reset_ack <= '0';
-
       -- clear all registers
-      for i in num_regs-1 downto 0
+      for i in num_regs-1 downto PC_REG+1
       loop
 --        slv_regs(i) <= (others => '0');
         slv_regs(i) <= std_logic_vector(to_unsigned(i, 32));
       end loop;
+      for i in PC_REG-1 downto 0 loop
+--        slv_regs(i) <= (others => '0');
+        slv_regs(i) <= std_logic_vector(to_unsigned(i, 32));
+      end loop;
+
+      -- the default instruction is "UNUSED_I8"
+      slv_regs(PC_REG) <= "00000000000000001101111011111111";
+      last_inst        <=                 "1101111011111111";
 
       -- reset stack pointer
       sp <= num_regs - 16;
 
-      -- flag end of reset work
+      -- let the state machine know reset work is done
       reg_file_reset_ack <= '1';
 
     end if RESET_EVENT;
@@ -518,13 +512,16 @@ begin
     SEND_INST_EVENT : if state = DO_SEND_INST
     then
 
-      -- flag about to send instruction
-      send_inst_ack <= '0';
-
       -- send instruction
-      instruction <= slv_regs(PC_REG)(15 downto 0);
+      if slv_regs(PC_REG)(15 downto 0) /= last_inst
+      then
+        instruction <= slv_regs(PC_REG)(15 downto 0);
+      end if;
 
-      -- flag instruction sent
+      -- copy this instruction to the save buffer to prevent bounce
+      last_inst <= slv_regs(PC_REG)(15 downto 0);
+
+      -- let the state machine know the instruction was sent
       send_inst_ack <= '1';
 
     end if SEND_INST_EVENT;
@@ -532,9 +529,6 @@ begin
     -- store the results of an ALU operation
     STORE_EVENT : if state = DO_STORE
     then
-
-      -- flag beginning of store work
-      store_ack <= '0';
 
       -- update alu outputs and perform load/store operations
       case op_type
@@ -682,7 +676,7 @@ begin
       slv_regs(APSR_REG)(1) <= flag_c;
       slv_regs(APSR_REG)(0) <= flag_v;
 
-      -- flag end of store work
+      -- let the state machine know store work is done
       store_ack <= '1';
 
     end if STORE_EVENT;
@@ -690,9 +684,6 @@ begin
     -- write data from Xilinx EDK(R) software to a register
     SOFT_WRITE_EVENT : if state = DO_SOFT_WRITE
     then
-
-      -- flag beginning of software write work
-      soft_write_ack <= '0';
 
       -- write values in from software
       if soft_addr_w /= zero
@@ -715,11 +706,22 @@ begin
         end loop;
       end if;
 
-      -- flag end of software write work
+      -- let the state machine know write work is done
       soft_write_ack <= '1';
 
     end if SOFT_WRITE_EVENT;
 
-  end process DO_STORE_PROC;
+    -- reset state machine outputs
+    CLEAR_FLAGS_EVENT : if state = DO_CLEAR_FLAGS
+    then
+      reg_file_reset_ack <= '0';
+      load_ack           <= '0';
+      soft_read_ack      <= '0';
+      send_inst_ack      <= '0';
+      store_ack          <= '0';
+      soft_write_ack     <= '0';
+    end if;
+
+  end process DO_UPDATE;
 
 end IMP;

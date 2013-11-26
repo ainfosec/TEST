@@ -18,6 +18,7 @@ package states is
   constant DO_STORE          : integer          := 7;
   constant DO_SOFT_READ      : integer          := 8;
   constant DO_SOFT_WRITE     : integer          := 9;
+  constant DO_CLEAR_FLAGS    : integer          := 10;
 end package states;
 
 package body states is

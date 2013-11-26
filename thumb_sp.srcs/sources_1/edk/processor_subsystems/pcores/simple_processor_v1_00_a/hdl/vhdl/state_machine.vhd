@@ -89,6 +89,11 @@ begin
       and reg_file_reset_ack = '1'
     then
       state <= DO_ALU_RESET;
+    elsif state = DO_ALU_RESET
+      and alu_reset_ack'event
+      and alu_reset_ack = '1'
+    then
+      state <= DO_CLEAR_FLAGS;
     elsif state = DO_SEND_INST
       and send_inst_ack'event
       and send_inst_ack = '1'
@@ -119,7 +124,11 @@ begin
       and soft_read_ack = '1'
     then
       state <= DO_SOFT_WRITE;
-
+    elsif state = DO_SOFT_WRITE
+      and soft_write_ack'event
+      and soft_write_ack = '1'
+    then
+      state <= DO_CLEAR_FLAGS;
     end if;
 
   end process DO_UPDATE;

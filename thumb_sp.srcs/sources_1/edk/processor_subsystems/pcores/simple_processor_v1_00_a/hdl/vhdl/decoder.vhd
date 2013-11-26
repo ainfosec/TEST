@@ -124,9 +124,6 @@ begin
     DECODE_EVENT : if state = DO_DECODE
     then
 
-      -- flag beginning of decode work
-      decode_ack <= '0';
-
       -- only work with clean data
       unclean := '0';
       for i in 15 downto 0
@@ -916,10 +913,16 @@ begin
       Rs   <= Rs_l;
       Rd   <= Rd_l;
 
-      -- flag end of decode work
+      -- let the state machine know decode work is done
       decode_ack <= '1';
 
     end if DECODE_EVENT;
+
+    -- reset state machine outputs
+    CLEAR_FLAGS_EVENT : if state = DO_CLEAR_FLAGS
+    then
+      decode_ack <= '0';
+    end if;
 
   end process DATA_DECODER;
 

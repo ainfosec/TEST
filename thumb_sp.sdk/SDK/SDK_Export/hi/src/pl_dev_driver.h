@@ -13,17 +13,6 @@
 #include "xil_io.h"
 #include "xparameters.h"
 
-/** in case these don't get picked up by xparameters.h */
-#ifndef XPAR_TRUSTED_KEY_0_BASEADDR
-#define XPAR_TRUSTED_KEY_0_BASEADDR 0x69800000
-#endif /* XPAR_TRUSTED_KEY_0_BASEADDR */
-#ifndef XPAR_GATE_VIEWER_0_BASEADDR
-#define XPAR_GATE_VIEWER_0_BASEADDR 0x6E000000
-#endif /* XPAR_GATE_VIEWER_0_BASEADDR */
-#ifndef XPAR_TRUSTED_GATE_0_BASEADDR
-#define XPAR_TRUSTED_GATE_0_BASEADDR 0x7FA00000
-#endif /* XPAR_TRUSTED_GATE_0_BASEADDR */
-
 /** Interrupt ReQuest codes */
 typedef enum _PL_DEV_IRQS
 {

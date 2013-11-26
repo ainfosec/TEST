@@ -2,7 +2,7 @@
 -- Version:           1.00.a
 -- Description:       takes a binary function and turns it into fetched data
 -- Date Created:      Wed, Nov 13, 2013 20:59:21
--- Last Modified:     Tue, Nov 19, 2013 15:48:47
+-- Last Modified:     Tue, Nov 26, 2013 14:08:03
 -- VHDL Standard:     VHDL'93
 -- Author:            Sean McClain <mcclains@ainfosec.com>
 -- Copyright:         (c) 2013 Assured Information Security, All Rights Reserved
@@ -14,9 +14,9 @@ use ieee.numeric_std.all;
 library proc_common_v3_00_a;
 use proc_common_v3_00_a.proc_common_pkg.all;
 
-library simple_processor_v1_00_a;
-use simple_processor_v1_00_a.opcodes.all;
-use simple_processor_v1_00_a.states.all;
+library simple_processor_wrapper_v1_00_a;
+use simple_processor_wrapper_v1_00_a.opcodes.all;
+use simple_processor_wrapper_v1_00_a.states.all;
 
 ---
 -- Converts a 16 bit ARM Thumb instruction in binary format into

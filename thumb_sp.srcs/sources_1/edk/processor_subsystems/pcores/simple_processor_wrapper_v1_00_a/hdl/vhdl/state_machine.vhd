@@ -2,7 +2,7 @@
 -- Version:           0.01
 -- Description:       Controls event ordering
 -- Date Created:      Tue, Nov 19, 2013 16:00:21
--- Last Modified:     Tue, Nov 19, 2013 16:00:21
+-- Last Modified:     Tue, Nov 26, 2013 14:09:49
 -- VHDL Standard:     VHDL '93
 -- Author:            Sean McClain <mcclains@ainfosec.com>
 -- Copyright:         (c) 2013 Assured Information Security, All Rights Reserved
@@ -14,9 +14,9 @@ use ieee.numeric_std.all;
 library proc_common_v3_00_a;
 use proc_common_v3_00_a.proc_common_pkg.all;
 
-library simple_processor_v1_00_a;
-use simple_processor_v1_00_a.opcodes.all;
-use simple_processor_v1_00_a.states.all;
+library simple_processor_wrapper_v1_00_a;
+use simple_processor_wrapper_v1_00_a.opcodes.all;
+use simple_processor_wrapper_v1_00_a.states.all;
 
 ---
 -- Triggers all processor events in order
@@ -36,6 +36,9 @@ is
     soft_write_ack     : in    std_logic;
     soft_read_ack      : in    std_logic;
 
+    -- allows asynchronous trigger of the AXI read signal
+    extern_trigger     : in    std_logic;
+
     -- main state variable, used in a manner similar to a clock
     state              : inout integer;
 
@@ -46,22 +49,19 @@ is
     Reset              : in    std_logic
   );
 
-  -- metadata for Xilinx EDK(R)
-  attribute MAX_FANOUT     : string;
-  attribute SIGIS          : string;
-  attribute SIGIS of Clk   : signal is "CLK";
-  attribute SIGIS of Reset : signal is "RST";
-
 end entity state_machine;
 
 architecture IMP of state_machine
 is
 
+  -- detects whether the extern_trigger signal has been updated
+  signal extern_trigger_event : std_logic;
+
 begin
 
   -- select the current state
   DO_UPDATE : process (
-      Clk, state,
+      Clk, state, extern_trigger,
       reg_file_reset_ack, alu_reset_ack,
       send_inst_ack, decode_ack, load_ack, math_ack, store_ack,
       soft_read_ack, soft_write_ack
@@ -82,6 +82,11 @@ begin
         state <= DO_SEND_INST;
 
       end if;
+
+    -- an AXI read was requested
+    elsif extern_trigger /= extern_trigger_event
+    then
+        state <= DO_SOFT_READ;
 
     -- already processing, advance to the next state
     elsif state = DO_REG_FILE_RESET
@@ -118,18 +123,21 @@ begin
       and store_ack'event
       and store_ack = '1'
     then
-      state <= DO_SOFT_READ;
-    elsif state = DO_SOFT_READ
-      and soft_read_ack'event
-      and soft_read_ack = '1'
-    then
       state <= DO_SOFT_WRITE;
     elsif state = DO_SOFT_WRITE
       and soft_write_ack'event
       and soft_write_ack = '1'
     then
       state <= DO_CLEAR_FLAGS;
+    elsif state = DO_SOFT_READ
+      and soft_read_ack'event
+      and soft_read_ack = '1'
+    then
+      state <= DO_CLEAR_FLAGS;
     end if;
+
+    -- set to allow detecting axi events
+    extern_trigger_event <= extern_trigger;
 
   end process DO_UPDATE;
 

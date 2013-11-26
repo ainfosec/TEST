@@ -2,7 +2,7 @@
 -- Version:           0.01
 -- Description:       Performs all arithmetic and sets/clears flags
 -- Date Created:      Wed, Nov 13, 2013 20:59:21
--- Last Modified:     Tue, Nov 19, 2013 13:48:47
+-- Last Modified:     Tue, Nov 26, 2013 14:07:55
 -- VHDL Standard:     VHDL '93
 -- Author:            Sean McClain <mcclains@ainfosec.com>
 -- Copyright:         (c) 2013 Assured Information Security, All Rights Reserved
@@ -14,9 +14,9 @@ use ieee.numeric_std.all;
 library proc_common_v3_00_a;
 use proc_common_v3_00_a.proc_common_pkg.all;
 
-library simple_processor_v1_00_a;
-use simple_processor_v1_00_a.opcodes.all;
-use simple_processor_v1_00_a.states.all;
+library simple_processor_wrapper_v1_00_a;
+use simple_processor_wrapper_v1_00_a.opcodes.all;
+use simple_processor_wrapper_v1_00_a.states.all;
 
 ---
 -- Arithmetic Logic Unit
@@ -104,6 +104,7 @@ begin
     variable a_se         : std_logic_vector(data_width*2-1 downto 0);
     variable b_se         : std_logic_vector(data_width*2-1 downto 0);
     variable did_subtract : std_logic;
+    variable temp_i       : integer;
   begin
 
     -- clear all flags
@@ -155,7 +156,8 @@ begin
       then
 
         -- sign extend operands for math ops
-        for i in data_width*2-1 downto data_width loop
+        for i in data_width*2-1 downto data_width
+        loop
           a_se(i) := a(data_width-1);
           b_se(i) := b(data_width-1);
         end loop;
@@ -173,6 +175,22 @@ begin
         then
           math_buff :=
             std_logic_vector(signed(a) * signed(b));
+
+          -- strip leading ones from upper bits to set carry bit properly
+          if   (a(data_width-1) = '1' and b(data_width-1) = '0')
+            or (a(data_width-1) = '0' and b(data_width-1) = '1')
+          then
+            temp_i := 0;
+            for i in data_width*2-1 downto data_width
+            loop
+              if math_buff(i) = '1' and temp_i = 0
+              then
+                math_buff(i) := '0';
+              else
+                temp_i := 1;
+              end if;
+            end loop;
+          end if;
 
         -- negate
         elsif opcode = NEG_Rd_Rm    or opcode = MVN_Rd_Rm

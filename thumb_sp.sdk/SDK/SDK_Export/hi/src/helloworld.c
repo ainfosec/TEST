@@ -15,16 +15,16 @@ int main()
             "0x00000000rn";
     unsigned len = strlen(outmesg);
 
-    PL_DEV_mReset(XPAR_SIMPLE_PROCESSOR_0_BASEADDR);
+    PL_DEV_mReset(XPAR_SIMPLE_PROCESSOR_WRAPPER_0_BASEADDR);
     PL_DEV_mWriteReg (
-            XPAR_SIMPLE_PROCESSOR_0_BASEADDR, 10, 0xDEADBEEF
+            XPAR_SIMPLE_PROCESSOR_WRAPPER_0_BASEADDR, 10, 0xDEADBEEF
             );
     snprintf (
             outmesg, len,
             "this hello world was brought to you by the number "
             "0x%08x\r\n",
             (unsigned) PL_DEV_mReadReg (
-                    XPAR_SIMPLE_PROCESSOR_0_BASEADDR, 10
+                    XPAR_SIMPLE_PROCESSOR_WRAPPER_0_BASEADDR, 10
                     )
             );
     init_platform();

@@ -3,7 +3,7 @@
 -- Description:       provides a user-specified number of data storage registers
 --                    which have I/O with both software and hardware
 -- Date Created:      Wed, Nov 13, 2013 20:59:21
--- Last Modified:     Tue, Nov 19, 2013 19:54:53
+-- Last Modified:     Tue, Nov 26, 2013 14:08:13
 -- VHDL Standard:     VHDL'93
 -- Author:            Sean McClain <mcclains@ainfosec.com>
 -- Copyright:         (c) 2013 Assured Information Security, All Rights Reserved
@@ -15,21 +15,21 @@ use ieee.numeric_std.all;
 library proc_common_v3_00_a;
 use proc_common_v3_00_a.proc_common_pkg.all;
 
-library simple_processor_v1_00_a;
-use simple_processor_v1_00_a.opcodes.all;
-use simple_processor_v1_00_a.states.all;
+library simple_processor_wrapper_v1_00_a;
+use simple_processor_wrapper_v1_00_a.opcodes.all;
+use simple_processor_wrapper_v1_00_a.states.all;
 
 ---
--- An n-register file which can be controlled by a simple_processor.decoder
---  device.
--- Note that the Xilinx EDK(R) software can only address 32 registers directly.
+-- An n-register file which can be controlled by a
+--  simple_processor_wrapper.decoder device.
+-- Note that the external peripheral can only address 32 registers directly.
 -- Note that ARM Thumb(R) can only address 8 registers directly, and 16
 --  registers indirectly.
 -- In compliance with ARM standards, there must be at least
 -- (30 data registers + 7 special purpose registers + 16 stack registers)
 --  = 53 registers.
--- This device is designed to be readable from Xilinx EDK(R). Instructions
---  can also be written from that platform.
+-- This device is designed to be readable from an external device. Instructions
+--  can also be written from that device.
 ---
 entity reg_file
 is
@@ -38,7 +38,7 @@ is
     -- number of registers in this file (at least 53)
     num_regs             : integer            := 53;
 
-    -- width of the address sent in by Xilinx EDK(R)
+    -- number of registers addressable by external peripheral
     soft_address_width   : integer            := 32;
 
     -- bit width of the data in this file (typically 32 or 64)
@@ -49,7 +49,8 @@ is
     -- Sends incoming instructions to the decoder
     instruction          : out   std_logic_vector(15 downto 0);
 
-    -- One of 64 ARM Thumb(R) opcodes, specified in simple_processor.opcodes
+    -- One of 64 ARM Thumb(R) opcodes, specified in
+    -- simple_processor_wrapper.opcodes
     opcode               : in    integer;
 
     -- hint provided for this opcode's functionality
@@ -109,20 +110,22 @@ is
     -- Second argument to the ALU
     alu_b                : out   std_logic_vector(data_width-1 downto 0);
 
-    -- An address in the format Xilinx EDK(R) uses, for reading
+    -- An address in decoded integer (e.g. 2^0 = 1, 2^32 = 31, 2^n = n-1) form,
+    --  for reading
     soft_addr_r          : in    std_logic_vector (
         soft_address_width-1 downto 0
         );
 
-    -- An address in the format Xilinx EDK(R) uses, for writing
+    -- An address in decoded integer (e.g. 2^0 = 1, 2^31 = 32, 2^n = n+1) form,
+    --  for writing
     soft_addr_w          : in    std_logic_vector (
         soft_address_width-1 downto 0
         );
 
-    -- Data incoming from Xilinx EDK(R)
+    -- Data incoming from external peripheral
     soft_data_i          : in    std_logic_vector(data_width-1 downto 0);
 
-    -- Data to be relayed back to Xilinx EDK(R)
+    -- Data to be relayed back to external peripheral
     soft_data_o          : out   std_logic_vector(data_width-1 downto 0);
 
     -- acknowledge a reset has been performed
@@ -137,11 +140,20 @@ is
     -- acknowledge alu output has been stored in registers
     store_ack            : out std_logic;
 
-    -- read acknowledge for Xilinx EDK(R)
+    -- acknowledge any soft reads are done for state machine
     soft_read_ack        : out   std_logic;
 
-    -- write acknowledge for Xilinx EDK(R)
+    -- acknowledge any soft writes are done for state machine
     soft_write_ack       : out   std_logic;
+
+    -- allow external peripheral to perform I/O asynchronously
+    extern_trigger       : out   std_logic;
+
+    -- read acknowledge for external peripheral
+    read_axi_ack         : out   std_logic;
+
+    -- write acknowledge for external peripheral
+    write_axi_ack        : out   std_logic;
 
     -- lets us know when to trigger an event
     state                : in    integer
@@ -189,6 +201,9 @@ is
 
   -- stores the last sent in instruction (to prevent bounce)
   signal last_inst   : std_logic_vector(15 downto 0);
+
+  -- allows external peripheral to read registers asynchronously
+  signal soft_read_trigger : std_logic;
 
 begin
 
@@ -458,7 +473,7 @@ begin
 
     end if LOAD_EVENT;
 
-    -- read from a register to Xilinx(R) EDK software
+    -- read from a register to external peripheral
     SOFT_READ_EVENT : if state = DO_SOFT_READ
     then
 
@@ -469,12 +484,18 @@ begin
         if soft_addr_r(soft_address_width-1 - i) = '1' and temp_i = 0
         then
 
-          -- read the decoded register out to Xilinx EDK(R)
+          -- read the decoded register out to external peripheral
           soft_data_o <= slv_regs(i);
           temp_i := 1;
 
         end if;
       end loop;
+      if temp_i = 1
+      then
+        read_axi_ack <= '1';
+      else
+        read_axi_ack <= '0';
+      end if;
 
       -- let the state machine know software read work is done
       soft_read_ack <= '1';
@@ -502,6 +523,9 @@ begin
 
       -- reset stack pointer
       sp <= num_regs - 16;
+
+      -- initialize external peripheral trigger
+      extern_trigger <= '0';
 
       -- let the state machine know reset work is done
       reg_file_reset_ack <= '1';
@@ -681,9 +705,17 @@ begin
 
     end if STORE_EVENT;
 
-    -- write data from Xilinx EDK(R) software to a register
+    -- write data from external peripheral to a register
     SOFT_WRITE_EVENT : if state = DO_SOFT_WRITE
     then
+
+      -- when we're done writing, enable reads
+      if soft_read_trigger /= '0' and soft_read_trigger /= '1'
+      then
+        extern_trigger <= '0';
+      else
+        extern_trigger <= soft_read_trigger;
+      end if;
 
       -- write values in from software
       if soft_addr_w /= zero
@@ -698,12 +730,20 @@ begin
             and (REG_BOUND >= i or i = PC_REG or i >= MEM_BOUND)
           then
 
-            -- write data from Xilinx EDK(R) to the decoded register
+            -- write data from external peripheral to the decoded register
             slv_regs(i) <= soft_data_i;
             temp_i := 1;
 
           end if;
         end loop;
+
+        if temp_i = 1
+        then
+          soft_write_ack <= '1';
+        else
+          soft_write_ack <= '0';
+        end if;
+
       end if;
 
       -- let the state machine know write work is done
@@ -723,5 +763,17 @@ begin
     end if;
 
   end process DO_UPDATE;
+
+  -- trigger soft reads asynchronously
+  DO_TRIGGER_READ : process ( soft_addr_r )
+  is
+  begin
+    if soft_read_trigger /= '0' and soft_read_trigger /= '1'
+    then
+      soft_read_trigger <= '1';
+    else
+      soft_read_trigger <= '1' xor soft_read_trigger;
+    end if;
+  end process;
 
 end IMP;

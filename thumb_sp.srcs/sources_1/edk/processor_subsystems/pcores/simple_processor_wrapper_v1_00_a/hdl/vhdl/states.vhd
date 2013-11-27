@@ -13,9 +13,9 @@ package states is
   constant DO_ALU_RESET      : integer          := 2;
   constant DO_SEND_INST      : integer          := 3;
   constant DO_DECODE         : integer          := 4;
-  constant DO_LOAD           : integer          := 5;
+  constant DO_ALU_INPUT      : integer          := 5;
   constant DO_MATH           : integer          := 6;
-  constant DO_STORE          : integer          := 7;
+  constant DO_LOAD_STORE     : integer          := 7;
   constant DO_SOFT_READ      : integer          := 8;
   constant DO_SOFT_WRITE     : integer          := 9;
   constant DO_CLEAR_FLAGS    : integer          := 10;

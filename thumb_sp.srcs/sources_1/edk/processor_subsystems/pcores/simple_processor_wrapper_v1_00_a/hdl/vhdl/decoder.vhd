@@ -27,7 +27,7 @@ is
   generic
   (
     -- bit width of the data in this file (typically 32 or 64)
-    data_width  : integer            := 32
+    DATA_WIDTH  : integer            := 32
   );
   port
   (
@@ -72,7 +72,7 @@ is
     Imm_11     : out   std_logic_vector(10 downto 0);
 
     -- convenience values for comparisons
-    zero       : out   std_logic_vector(data_width-1 downto 0);
+    zero       : out   std_logic_vector(DATA_WIDTH-1 downto 0);
 
     -- a flag used by the PUSH and POP instructions
     flag_lr_pc : out   std_logic;

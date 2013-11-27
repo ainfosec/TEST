@@ -36,13 +36,13 @@ is
   generic
   (
     -- number of registers in this file (at least 53)
-    num_regs             : integer            := 53;
+    NUM_REGS             : integer            := 53;
 
     -- number of registers addressable by external peripheral
-    soft_address_width   : integer            := 32;
+    SOFT_ADDRESS_WIDTH   : integer            := 32;
 
     -- bit width of the data in this file (typically 32 or 64)
-    data_width           : integer            := 32
+    DATA_WIDTH           : integer            := 32
   );
   port
   (
@@ -81,7 +81,7 @@ is
     Imm_11               : in    std_logic_vector(10 downto 0);
 
     -- convenience values for comparisons
-    zero                 : in    std_logic_vector(data_width-1 downto 0);
+    zero                 : in    std_logic_vector(DATA_WIDTH-1 downto 0);
 
     -- a flag used by the PUSH and POP instructions
     flag_lr_pc           : in    std_logic;
@@ -90,7 +90,7 @@ is
     flags_h              : in    std_logic_vector(1 downto 0);
 
     -- input data from ALU
-    alu_out              : in    std_logic_vector(data_width-1 downto 0);
+    alu_out              : in    std_logic_vector(DATA_WIDTH-1 downto 0);
 
     -- The Negative flag from the ALU
     flag_n               : in    std_logic;
@@ -105,28 +105,28 @@ is
     flag_v               : in    std_logic;
 
     -- First argument to the ALU
-    alu_a                : out   std_logic_vector(data_width-1 downto 0);
+    alu_a                : out   std_logic_vector(DATA_WIDTH-1 downto 0);
 
     -- Second argument to the ALU
-    alu_b                : out   std_logic_vector(data_width-1 downto 0);
+    alu_b                : out   std_logic_vector(DATA_WIDTH-1 downto 0);
 
     -- An address in decoded integer (e.g. 2^0 = 1, 2^32 = 31, 2^n = n-1) form,
     --  for reading
     soft_addr_r          : in    std_logic_vector (
-        soft_address_width-1 downto 0
+        SOFT_ADDRESS_WIDTH-1 downto 0
         );
 
     -- An address in decoded integer (e.g. 2^0 = 1, 2^31 = 32, 2^n = n+1) form,
     --  for writing
     soft_addr_w          : in    std_logic_vector (
-        soft_address_width-1 downto 0
+        SOFT_ADDRESS_WIDTH-1 downto 0
         );
 
     -- Data incoming from external peripheral
-    soft_data_i          : in    std_logic_vector(data_width-1 downto 0);
+    soft_data_i          : in    std_logic_vector(DATA_WIDTH-1 downto 0);
 
     -- Data to be relayed back to external peripheral
-    soft_data_o          : out   std_logic_vector(data_width-1 downto 0);
+    soft_data_o          : out   std_logic_vector(DATA_WIDTH-1 downto 0);
 
     -- acknowledge a reset has been performed
     reg_file_reset_ack   : out   std_logic;
@@ -146,15 +146,6 @@ is
     -- acknowledge any soft writes are done for state machine
     soft_write_ack       : out   std_logic;
 
-    -- allow external peripheral to perform I/O asynchronously
-    extern_trigger       : out   std_logic;
-
-    -- read acknowledge for external peripheral
-    read_axi_ack         : out   std_logic;
-
-    -- write acknowledge for external peripheral
-    write_axi_ack        : out   std_logic;
-
     -- lets us know when to trigger an event
     state                : in    integer
   );
@@ -173,296 +164,140 @@ is
   -- register to store the next instruction in
   constant PC_REG    : integer := 31;
 
-  --
+  -- current program state register
   constant CPSR_REG  : integer := 32;
 
-  --
+  -- saved program state registers
   constant SPSR1_REG : integer := 33;
-
-  --
   constant SPSR2_REG : integer := 34;
-
-  --
   constant SPSR3_REG : integer := 35;
-
-  --
   constant SPSR4_REG : integer := 36;
-
-  -- lowest memory register
   constant MEM_BOUND : integer := 37;
 
   -- data and memory registers
-  type slv_regs_type is array(num_regs-1 downto 0)
-    of std_logic_vector(data_width-1 downto 0);
+  type slv_regs_type is array(NUM_REGS-1 downto 0)
+    of std_logic_vector(DATA_WIDTH-1 downto 0);
   signal slv_regs    : slv_regs_type;
 
   -- stack pointer
-  signal sp          : integer range MEM_BOUND to num_regs-16;
+  signal sp          : integer range MEM_BOUND to NUM_REGS-1;
 
   -- stores the last sent in instruction (to prevent bounce)
   signal last_inst   : std_logic_vector(15 downto 0);
-
-  -- allows external peripheral to read registers asynchronously
-  signal soft_read_trigger : std_logic;
 
 begin
 
   -- perform all operations that retrive values from the registers and memory
   DO_UPDATE : process ( state )
   is
-    variable a_l    : std_logic_vector(data_width-1 downto 0);
-    variable b_l    : std_logic_vector(data_width-1 downto 0);
-    variable temp_i : integer;
+    variable a_l    : std_logic_vector(DATA_WIDTH-1 downto 0);
+    variable b_l    : std_logic_vector(DATA_WIDTH-1 downto 0);
+    variable mem_i  : integer range MEM_BOUND to DATA_WIDTH-1;
+    variable mask_i : integer range 0 to 7;
+    variable temp   : std_logic_vector(DATA_WIDTH-1 downto 0);
+    variable found  : std_logic;
   begin
 
     -- load values to be sent to the ALU
-    LOAD_EVENT : if state = DO_LOAD
+    ALU_INPUT_EVENT : if state = DO_ALU_INPUT
     then
 
-      -- update alu outputs and perform load/store operations
-      case op_type
-      is
+      -- arithmetic with an 8 bit immediate value,
+      --  mostly special purpose functions
+      if    op_type = ARITH_IM8         or op_type = ARITH_DST_IM8
+         or op_type = TEST_RGN_IM8
+      then
 
-        -- special purpose functions
-        when ARITH_IM8         =>
+        -- sub: SP = SP - (#OFF << 2)
+        if opcode = SUB_I
+        then
+          a_l := std_logic_vector(to_unsigned(sp, DATA_WIDTH));
 
-          -- sub: SP = SP - (#OFF << 2)
-          if opcode = SUB_I
-          then
-            a_l := std_logic_vector(to_unsigned(sp, data_width));
-            b_l(data_width-1 downto 8) := (others => '0');
-            b_l(7 downto 0)            := Imm_8;
-
-          -- BKPT, B_COND, or SWI
-          else
-            a_l(data_width-1 downto 8) := (others => '0');
-            a_l(7 downto 0)            := Imm_8;
-            b_l                        := (others => '0');
-
-          end if;
-
-        -- branch
-        when ARITH_IM11        =>
-          a_l(data_width-1 downto 11) := (others => '0');
-          a_l(10 downto 0)            := Imm_11;
-          b_l                         := (others => '0');
-
-        -- Rd := Rd <op> #
-        when ARITH_DST_IM8    =>
-
-          -- add/sub #
-          if    opcode = ADD_Rd_I   or opcode = SUB_Rd_I
-          then
-            a_l := slv_regs(to_integer(unsigned(Rd)));
-
-          -- add/sub [SP + (#OFF >> 2)]
-          elsif opcode = ADD_Rd_IPC or opcode = ADD_Rd_ISP
-          then
-            temp_i := sp + to_integer(shift_right(signed(Imm_8), 2));
-            if temp_i > data_width-1
-            then
-              temp_i := data_width-1;
-            end if;
-            a_l := slv_regs(temp_i);
-
-          -- mov
-          else
-            a_l := (others => '0');
-
-          end if;
-
-          -- 2nd arg is the same for all 3 cases
-          b_l(data_width-1 downto 8) := (others => '0');
-          b_l(7 downto 0)            := Imm_8;
-
-        -- Rd := Rd <op> Rm
-        when ARITH_RGM_DST     =>
-          a_l := slv_regs(to_integer(unsigned(Rd)));
-          b_l := slv_regs(to_integer(unsigned(Rm)));
-
-        -- Rd := Rd <op> Rs
-        when ARITH_SRC_DST     =>
-          a_l := slv_regs(to_integer(unsigned(Rd)));
-          b_l := slv_regs(to_integer(unsigned(Rs)));
-
-        -- Rd := Rm <op> #
-        when ARITH_IM5_RGM_DST =>
-          a_l := slv_regs(to_integer(unsigned(Rm)));
-          b_l(data_width-1 downto 5) := (others => '0');
-          b_l(4 downto 0)            := Imm_5;
-
-        -- Rd := Rn <op> #
-        when ARITH_IM3_RGN_DST =>
-          a_l := slv_regs(to_integer(unsigned(Rn)));
-          b_l(data_width-1 downto 3) := (others => '0');
-          b_l(2 downto 0)            := Imm_3;
-
-        -- Rd := Rm <op> Rn
-        when ARITH_RGM_RGN_DST =>
-          a_l := slv_regs(to_integer(unsigned(Rm)));
-          b_l := slv_regs(to_integer(unsigned(Rn)));
-
-        -- depending on H flags, one of the following:
-        -- Rd := Rd <op> Rm
-        -- [Rd + 8] := [Rd + 8] <op> Rm
-        -- Rd := Rd <op> [Rm + 8]
-        -- [Rd + 8] := [Rd + 8] <op> [Rm + 8]
-        when ARITH_HFLAGS      =>
-          case flags_h
-          is
-            when "01"   =>
-              a_l := slv_regs(to_integer(unsigned(Rd)));
-              b_l := slv_regs(to_integer(unsigned(Rm)) + 8);
-            when "10"   =>
-              a_l := slv_regs(to_integer(unsigned(Rd)) + 8);
-              b_l := slv_regs(to_integer(unsigned(Rm)));
-            when "11" =>
-              a_l := slv_regs(to_integer(unsigned(Rd)) + 8);
-              b_l := slv_regs(to_integer(unsigned(Rm)) + 8);
-            when others   =>
-              a_l := slv_regs(to_integer(unsigned(Rd)));
-              b_l := slv_regs(to_integer(unsigned(Rm)));
-          end case;
-
-        -- Rm <op> #
-        when TEST_RGN_IM8     =>
-          a_l := slv_regs(to_integer(unsigned(Rn)));
-          b_l(data_width-1 downto 8) := (others => '0');
-          b_l(7 downto 0)            := Imm_8;
-
-        -- Rm <op> Rn
-        when TEST_RGN_RGM      =>
-          a_l := slv_regs(to_integer(unsigned(Rm)));
-          b_l := slv_regs(to_integer(unsigned(Rn)));
-
-        -- Depending on H flags, one of the following:
-        -- Rm <op> Rn
-        -- [Rm + 8] <op> Rn
-        -- Rm <op> [Rn + 8]
-        -- [Rm + 8] <op> [Rn + 8]
-        when TEST_HFLAGS       =>
-          case flags_h
-          is
-            when "01"   =>
-              a_l := slv_regs(to_integer(unsigned(Rd)));
-              b_l := slv_regs(to_integer(unsigned(Rm)) + 8);
-            when "10"   =>
-              a_l := slv_regs(to_integer(unsigned(Rd)) + 8);
-              b_l := slv_regs(to_integer(unsigned(Rm)));
-            when "11" =>
-              a_l := slv_regs(to_integer(unsigned(Rd)) + 8);
-              b_l := slv_regs(to_integer(unsigned(Rm)) + 8);
-            when others   =>
-              a_l := slv_regs(to_integer(unsigned(Rd)));
-              b_l := slv_regs(to_integer(unsigned(Rm)));
-          end case;
-
-        -- Rd = [SP + (#OFF << 2)]
-        when LOAD_DST_IM8      =>
-          temp_i := sp + to_integer(shift_right(signed(Imm_8), 2));
-          if temp_i > data_width-1
-          then
-            temp_i := data_width-1;
-          end if;
-          a_l := slv_regs(temp_i);
-          b_l := (others => '0');
-
-        -- Rd = [Rn + (#OFF << 2)]
-        when LOAD_IM5_RGN_DST  =>
-
-          -- byte
-          if    opcode = LDRB_Rd_Rn_I
-          then
-            a_l(data_width-1 downto 8) := (others => '0');
-            a_l(7 downto 0) := slv_regs (
-                to_integer(unsigned(Rn))
-              + to_integer(shift_right(signed(Imm_5), 2))
-              ) (7 downto 0);
-
-          -- half word
-          elsif opcode = LDRH_Rd_Rn_I
-          then
-            a_l(data_width-1 downto 16) := (others => '0');
-            a_l(15 downto 0) := slv_regs (
-                to_integer(unsigned(Rn))
-              + to_integer(shift_right(signed(Imm_5), 2))
-              ) (15 downto 0);
-
-          -- whole word
-          else
-            a_l := slv_regs (
-                to_integer(unsigned(Rn))
-              + to_integer(shift_right(signed(Imm_5), 2))
-              );
-
-          end if;
-          b_l := (others => '0');
-
-        -- RD = [Rn + Rm]
-        when LOAD_RGM_RGN_DST  =>
-
-          -- byte
-          if    opcode = LDRB_Rd_Rn_Rm
-          then
-            a_l(data_width-1 downto 8) := (others => '0');
-            a_l(7 downto 0)            := slv_regs (
-                to_integer(unsigned(Rn))
-              + to_integer(unsigned(Rm))
-              ) (7 downto 0);
-
-          -- half word
-          elsif opcode = LDRH_Rd_Rn_Rm
-          then
-            a_l(data_width-1 downto 16) := (others => '0');
-            a_l(15 downto 0)            := slv_regs (
-                to_integer(unsigned(Rn))
-              + to_integer(unsigned(Rm))
-              ) (15 downto 0);
-
-          -- byte, signed
-          elsif opcode = LDRSB_Rd_Rn_Rm
-          then
-            temp_i := to_integer(signed(Rn)) + to_integer(signed(Rm));
-            if temp_i < MEM_BOUND
-            then
-              temp_i := MEM_BOUND;
-            elsif temp_i > num_regs-1
-            then
-              temp_i := num_regs-1;
-            end if;
-            a_l(data_width-1 downto 8) := (others => '0');
-            a_l(7 downto 0)            := slv_regs(temp_i)(7 downto 0);
-
-          -- half word, signed
-          elsif opcode = LDRSH_Rd_Rn_Rm
-          then
-            temp_i := to_integer(signed(Rn)) + to_integer(signed(Rm));
-            if temp_i < MEM_BOUND
-            then
-              temp_i := MEM_BOUND;
-            elsif temp_i > num_regs-1
-            then
-              temp_i := num_regs-1;
-            end if;
-            a_l(data_width-1 downto 16) := (others => '0');
-            a_l(15 downto 0)            := slv_regs(temp_i)(15 downto 0);
-
-          -- whole word
-          else
-            a_l := slv_regs (
-                to_integer(unsigned(Rn))
-              + to_integer(unsigned(Rm))
-              );
-
-          end if;
-          b_l := (others => '0');
-
-        -- not coded for data load
-        when others            =>
+        -- BKPT, B_COND, SWI, or MOV
+        elsif op_type = ARITH_IM8 or opcode = MOV_Rd_I
+        then
           a_l := (others => '0');
-          b_l := (others => '0');
 
-      end case;
+        -- add/sub #
+        elsif opcode = ADD_Rd_I   or opcode = SUB_Rd_I
+        then
+          a_l := slv_regs(to_integer(unsigned(Rd)));
+
+        -- add/sub [SP + (#OFF >> 2)], so -32 to +31
+        elsif opcode = ADD_Rd_IPC or opcode = ADD_Rd_ISP
+        then
+          mem_i := sp + to_integer(signed(Imm_8(7 downto 2)));
+          a_l := slv_regs(mem_i);
+
+        -- Rn <op> #
+        else
+          a_l := slv_regs(to_integer(unsigned(Rn)));
+
+        end if;
+
+        -- 2nd argument is the 8 bit immediate value
+        b_l(DATA_WIDTH-1 downto 8) := (others => '0');
+        b_l(7 downto 0) := Imm_8;
+
+      -- arithmetic with an 11, 5, or 3 bit immediate value
+      elsif op_type = ARITH_IM11
+      then
+        a_l := (others => '0');
+        b_l(DATA_WIDTH-1 downto 11) := (others => '0');
+        b_l(10 downto 0) := Imm_11;
+      elsif op_type = ARITH_IM5_RGM_DST
+      then
+        a_l := slv_regs(to_integer(unsigned(Rm)));
+        b_l(DATA_WIDTH-1 downto 5) := (others => '0');
+        b_l(4 downto 0) := Imm_5;
+      elsif op_type = ARITH_IM3_RGN_DST
+      then
+        a_l := slv_regs(to_integer(unsigned(Rn)));
+        b_l(DATA_WIDTH-1 downto 3) := (others => '0');
+        b_l(2 downto 0) := Imm_3;
+
+
+      -- arithmetic operating on two registers
+      elsif op_type = ARITH_RGM_DST     or op_type = ARITH_SRC_DST
+         or op_type = ARITH_HFLAGS      or op_type = TEST_HFLAGS
+         or op_type = ARITH_RGM_RGN_DST or op_type = TEST_RGN_RGM
+      then
+
+        -- ALU Argument 1, flags_h(1) means load from regs 8-15
+        if    op_type  = TEST_HFLAGS  and flags_h(1) = '1'
+        then
+          a_l := slv_regs(to_integer(unsigned(Rm)) + 8);
+        elsif op_type  = TEST_HFLAGS   or op_type = ARITH_RGM_RGN_DST
+           or op_type = TEST_RGN_RGM
+        then
+          a_l := slv_regs(to_integer(unsigned(Rm)));
+        elsif op_type /= ARITH_HFLAGS or flags_h(1) /= '1'
+        then
+          a_l := slv_regs(to_integer(unsigned(Rd)));
+        else
+          a_l := slv_regs(to_integer(unsigned(Rd)) + 8);
+        end if;
+
+        -- ALU argument 2, flags_h(0) means load from regs 8-15
+        if    op_type = TEST_HFLAGS   and flags_h(0) = '1'
+        then
+          b_l := slv_regs(to_integer(unsigned(Rn)) + 8);
+        elsif op_type = TEST_HFLAGS    or op_type = ARITH_RGM_RGN_DST
+           or op_type = TEST_RGN_RGM
+        then
+          b_l := slv_regs(to_integer(unsigned(Rn)));
+        elsif op_type = ARITH_RGM_DST
+           or (op_type = ARITH_HFLAGS and flags_h(0) /= '1')
+        then
+          b_l := slv_regs(to_integer(unsigned(Rm)));
+        elsif op_type = ARITH_HFLAGS
+        then
+          b_l := slv_regs(to_integer(unsigned(Rm)) + 8);
+        else
+          b_l := slv_regs(to_integer(unsigned(Rs)));
+        end if;
+
+      end if;
 
       -- send alu outputs out
       alu_a   <= a_l;
@@ -471,31 +306,25 @@ begin
       -- let the state machine know load work is done
       load_ack <= '1';
 
-    end if LOAD_EVENT;
+    end if ALU_INPUT_EVENT;
 
     -- read from a register to external peripheral
     SOFT_READ_EVENT : if state = DO_SOFT_READ
     then
 
       -- decode the read ID
-      temp_i := 0;
-      for i in soft_address_width-1 downto 0
+      found := '0';
+      for i in SOFT_ADDRESS_WIDTH-1 downto 0
       loop
-        if soft_addr_r(soft_address_width-1 - i) = '1' and temp_i = 0
+        if soft_addr_r(SOFT_ADDRESS_WIDTH-1 - i) = '1' and found = '0'
         then
 
           -- read the decoded register out to external peripheral
           soft_data_o <= slv_regs(i);
-          temp_i := 1;
+          found := '1';
 
         end if;
       end loop;
-      if temp_i = 1
-      then
-        read_axi_ack <= '1';
-      else
-        read_axi_ack <= '0';
-      end if;
 
       -- let the state machine know software read work is done
       soft_read_ack <= '1';
@@ -507,7 +336,7 @@ begin
     then
 
       -- clear all registers
-      for i in num_regs-1 downto PC_REG+1
+      for i in NUM_REGS-1 downto PC_REG+1
       loop
 --        slv_regs(i) <= (others => '0');
         slv_regs(i) <= std_logic_vector(to_unsigned(i, 32));
@@ -522,10 +351,7 @@ begin
       last_inst        <=                 "1101111011111111";
 
       -- reset stack pointer
-      sp <= num_regs - 16;
-
-      -- initialize external peripheral trigger
-      extern_trigger <= '0';
+      sp <= NUM_REGS - 16;
 
       -- let the state machine know reset work is done
       reg_file_reset_ack <= '1';
@@ -551,150 +377,146 @@ begin
     end if SEND_INST_EVENT;
 
     -- store the results of an ALU operation
-    STORE_EVENT : if state = DO_STORE
+    LOAD_STORE_EVENT : if state = DO_LOAD_STORE
     then
 
-      -- update alu outputs and perform load/store operations
-      case op_type
-      is
+      -- SP = SP - (#OFF << 2)
+      LOAD_STORE_SWITCH_OP_TYPE : if opcode = SUB_I
+      then
+        sp <= to_integer(unsigned(alu_out));
 
-        -- special purpose functions
-        when ARITH_IM8         =>
+      -- simple arithmetic
+      elsif op_type = ARITH_IM11        or op_type = ARITH_DST_IM8
+         or op_type = ARITH_RGM_DST     or op_type = ARITH_SRC_DST
+         or op_type = ARITH_IM5_RGM_DST or op_type = ARITH_IM3_RGN_DST
+         or op_type = ARITH_RGM_RGN_DST
+         or (op_type = ARITH_HFLAGS and flags_h(1) /= '1')
+      then
+        slv_regs(to_integer(unsigned(Rd))) <= alu_out;
 
-          -- sub: SP = SP - (#OFF << 2)
-          if opcode = SUB_I
+      -- math using registers 9-15
+      elsif op_type = ARITH_HFLAGS
+      then
+        slv_regs(to_integer(unsigned(Rd)) + 8) <= alu_out;
+
+      -- Rd = [(PC|SP|Rn) + (#OFF << 2)] or vice-versa
+      -- Rd = [Rn + Rm] or vice-versa
+      elsif op_type = LOAD_DST_IM8     or op_type = LOAD_IM5_RGN_DST
+         or op_type = STORE_DST_IM8    or op_type = STORE_IM5_RGN_DST
+         or op_type = LOAD_RGM_RGN_DST or op_type = STORE_RGM_RGN_DST
+      then
+
+        -- Rd = [PC + (#OFF << 2)]
+        if    opcode  = LDR_Rd_IPC
+        then
+          mem_i := PC_REG + to_integer(signed(Imm_8(7 downto 2)));
+
+        -- Rd = [SP + (#OFF << 2)] or vice-versa
+        elsif opcode  = LDR_Rd_ISP       or opcode = STR_Rd_I
+        then
+          mem_i := sp + to_integer(signed(Imm_8(7 downto 2)));
+
+        -- Rd = [Rn + (#OFF << 2)] or vice-versa
+        elsif opcode  = LDR_Rd_Rn_I      or opcode = LDRB_Rd_Rn_I
+           or opcode  = LDRH_Rd_Rn_I     or opcode = STR_Rd_Rn_I
+           or opcode  = STRB_Rd_Rn_I     or opcode = STRH_Rd_Rn_I
+           or opcode  = LDRSB_Rd_Rn_Rm   or opcode = LDRSH_Rd_Rn_Rm
+        then
+          mem_i := to_integer(unsigned(Rn))
+                 + to_integer(signed(Imm_5(4 downto 2)));
+
+        -- Rd = [Rn + Rm] or vice-versa
+        elsif op_type = LOAD_RGM_RGN_DST or op_type = STORE_RGM_RGN_DST
+        then
+          mem_i := to_integer(unsigned(Rn)) + to_integer(unsigned(Rm));
+
+        end if;
+
+        -- load/store using the immediate coded address,
+        --  b means byte, h means half word, s means signed
+        if    opcode  = LDR_Rd_Rn_I  or op_type = LOAD_DST_IM8
+        then
+          slv_regs(to_integer(unsigned(Rd))) <=
+            slv_regs(mem_i);
+        elsif opcode  = LDRB_Rd_Rn_I or opcode = LDRB_Rd_Rn_Rm
+        then
+          slv_regs(to_integer(unsigned(Rd)))(7 downto 0) <=
+            slv_regs(mem_i)(7 downto 0);
+        elsif opcode  = LDRH_Rd_Rn_I or opcode = LDRH_Rd_Rn_Rm
+        then
+          slv_regs(to_integer(unsigned(Rd)))(15 downto 0) <=
+            slv_regs(mem_i)(15 downto 0);
+        elsif opcode  = LDRSB_Rd_Rn_Rm
+        then
+          slv_regs(to_integer(unsigned(Rd)))(6 downto 0) <=
+            slv_regs(mem_i)(6 downto 0);
+          slv_regs(to_integer(unsigned(Rd)))(7) <=
+            slv_regs(mem_i)(DATA_WIDTH-1);
+        elsif opcode  = LDRSH_Rd_Rn_Rm
+        then
+          slv_regs(to_integer(unsigned(Rd)))(14 downto 0) <=
+            slv_regs(mem_i)(14 downto 0);
+          slv_regs(to_integer(unsigned(Rd)))(15) <=
+            slv_regs(mem_i)(DATA_WIDTH-1);
+        elsif opcode  = STR_Rd_Rn_I  or op_type = STORE_DST_IM8
+           or opcode  = STR_Rd_Rn_Rm
+        then
+          slv_regs(mem_i) <=
+            slv_regs(to_integer(unsigned(Rd)));
+        elsif opcode  = STRB_Rd_Rn_I or opcode = STRB_Rd_Rn_Rm
+        then
+          slv_regs(mem_i)(7 downto 0) <=
+            slv_regs(to_integer(unsigned(Rd)))(7 downto 0);
+        elsif opcode  = STRH_Rd_Rn_I or opcode = STRH_Rd_Rn_Rm
+        then
+          slv_regs(mem_i)(15 downto 0) <=
+            slv_regs(to_integer(unsigned(Rd)))(15 downto 0);
+        end if;
+
+      -- load/store a register list, Imm_8 is a bit mask for the 1st 8 regs
+      elsif opcode  = STMIA_RN_RL  or opcode = LDMIA_RN_RL
+         or opcode  = PUSH_RL_LR   or opcode = POP_RL_PC
+      then
+
+        -- loop over bit mask until a value is found
+        mask_i := 0;
+        for i in 7 downto 0
+        loop
+          if Imm_8(i) = '1'
           then
-            temp_i := to_integer(unsigned(alu_out));
-            if temp_i > data_width-16
+
+            -- grab the index to load/store from
+            if    op_type = LOAD_REGLIST or op_type = STORE_REGLIST
             then
-              temp_i := data_width-16;
+              mem_i := sp + to_integer(unsigned(Rn)) + mask_i;
+            elsif op_type = PUSH_POP
+            then
+              mem_i := sp + mask_i;
+            else
+              mem_i := sp;
             end if;
-            sp <= temp_i;
 
-          -- BKPT, B_COND, or SWI otherwise, nothing stored
+            -- load
+            if    opcode = LDMIA_RN_RL or opcode = POP_RL_PC
+            then
+              slv_regs(i) <= slv_regs(mem_i);
 
+            -- store
+            elsif opcode = STMIA_RN_RL or opcode = PUSH_RL_LR
+            then
+              slv_regs(mem_i) <= slv_regs(i);
+
+            end if;
+
+        -- increment the number of found values and keep going
+            mask_i := mask_i + 1;
           end if;
+        end loop;
 
-        -- simple arithmetic
-        when ARITH_IM11        =>
-          slv_regs(to_integer(unsigned(Rd))) <= alu_out;
-        when ARITH_DST_IM8    =>
-          slv_regs(to_integer(unsigned(Rd))) <= alu_out;
-        when ARITH_RGM_DST     =>
-          slv_regs(to_integer(unsigned(Rd))) <= alu_out;
-        when ARITH_SRC_DST     =>
-          slv_regs(to_integer(unsigned(Rd))) <= alu_out;
-        when ARITH_IM5_RGM_DST =>
-          slv_regs(to_integer(unsigned(Rd))) <= alu_out;
-        when ARITH_IM3_RGN_DST =>
-          slv_regs(to_integer(unsigned(Rd))) <= alu_out;
-        when ARITH_RGM_RGN_DST =>
-          slv_regs(to_integer(unsigned(Rd))) <= alu_out;
-
-        -- math using registers 9-15
-        when ARITH_HFLAGS      =>
-          case flags_h(1)
-          is
-            when '1'   =>
-              slv_regs(to_integer(unsigned(Rd)) + 8) <= alu_out;
-            when others   =>
-              slv_regs(to_integer(unsigned(Rd))) <= alu_out;
-          end case;
-
-        -- memory -> registers
-        when LOAD_DST_IM8      =>
-          slv_regs(to_integer(unsigned(Rd))) <= alu_out;
-        when LOAD_IM5_RGN_DST  =>
-          slv_regs(to_integer(unsigned(Rd))) <= alu_out;
-        when LOAD_RGM_RGN_DST  =>
-          slv_regs(to_integer(unsigned(Rd))) <= alu_out;
-
-        -- registers -> memory
-        when STORE_DST_IM8     =>
-          slv_regs(to_integer(unsigned(Rd)) + MEM_BOUND) <= alu_out;
-        when STORE_IM5_RGN_DST =>
-          slv_regs(to_integer(unsigned(Rd)) + MEM_BOUND) <= alu_out;
-        when STORE_RGM_RGN_DST =>
-          slv_regs(to_integer(unsigned(Rd)) + MEM_BOUND) <= alu_out;
-
-        -- Imm_8 is a bit mask for the 8 addressable data registers
-        --
-        -- For each ith hit Rh:
-        -- [SP + Rn + (i - 1)] := Rh
-        --
-        -- Example:
-        --
-        -- Reg[0 to 7] = {0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08}
-        -- Imm_8 = b11011010
-        -- Reg[(SP+0) to (SP+4)] = {0x02, 0x04, 0x05, 0x07, 0x08}
-        when LOAD_REGLIST      =>
-          temp_i := 0;
-          for i in 7 downto 0
-          loop
-            if Imm_8(i) = '1'
-            then
-              slv_regs(i) <= slv_regs(sp + to_integer(unsigned(Rn)) + temp_i);
-              temp_i := temp_i + 1;
-            end if;
-          end loop;
-
-        -- Imm_8 is a bit mask for the 8 addressable data registers
-        --
-        -- For each ith hit Rh:
-        -- Rh := [SP + Rn + (i - 1)]
-        --
-        -- Example:
-        --
-        -- Reg[(SP+0) to (SP+3)] = {0x01, 0x02, 0x03, 0x04}
-        -- Reg[(SP+4) to (SP+7)] = {0x05, 0x06, 0x07, 0x08}
-        -- Reg[0 to 7] = {0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00}
-        -- Imm_8 = b11011010
-        -- Reg[0 to 7] = {0x00, 0x01, 0x00, 0x02, 0x03, 0x00, 0x04, 0x05}
-        when STORE_REGLIST     =>
-          temp_i := 0;
-          for i in 7 downto 0
-          loop
-            if Imm_8(i) = '1'
-            then
-              slv_regs(sp + to_integer(unsigned(Rn)) + temp_i) <= slv_regs(i);
-              temp_i := temp_i + 1;
-            end if;
-          end loop;
-
-        -- push values onto the stack or pull values off the stack
-        -- uses a register list similar to (LD|ST)MIA
-        when PUSH_POP          =>
-
-          -- loop through bit mask
-          temp_i := 0;
-          for i in 7 downto 0
-          loop
-            if Imm_8(i) = '1'
-            then
-
-              -- pop
-              if opcode = POP_RL_PC
-              then
-                slv_regs(i) <= slv_regs(sp + temp_i);
-                temp_i := temp_i + 1;
-
-              -- push
-              else
-                slv_regs(sp + temp_i) <= slv_regs(i);
-                temp_i := temp_i + 1;
-
-              end if;
-            end if;
-          end loop;
-
-        -- not coded for data storage
-        when others =>
-          temp_i := 0;
-
-      end case;
+      end if LOAD_STORE_SWITCH_OP_TYPE;
 
       -- update flags
-      slv_regs(APSR_REG)(data_width-1 downto 4) <= (others => '0');
+      slv_regs(APSR_REG)(DATA_WIDTH-1 downto 4) <= (others => '0');
       slv_regs(APSR_REG)(3) <= flag_n;
       slv_regs(APSR_REG)(2) <= flag_z;
       slv_regs(APSR_REG)(1) <= flag_c;
@@ -703,46 +525,33 @@ begin
       -- let the state machine know store work is done
       store_ack <= '1';
 
-    end if STORE_EVENT;
+    end if LOAD_STORE_EVENT;
 
     -- write data from external peripheral to a register
     SOFT_WRITE_EVENT : if state = DO_SOFT_WRITE
     then
-
-      -- when we're done writing, enable reads
-      if soft_read_trigger /= '0' and soft_read_trigger /= '1'
-      then
-        extern_trigger <= '0';
-      else
-        extern_trigger <= soft_read_trigger;
-      end if;
 
       -- write values in from software
       if soft_addr_w /= zero
       then
 
         -- decode the write ID
-        temp_i := 0;
-        for i in soft_address_width-1 downto 0
+        found := '0';
+        for i in SOFT_ADDRESS_WIDTH-1 downto 0
         loop
-          if    soft_addr_w(soft_address_width-1 - i) = '1'
-            and temp_i = 0
+          if    soft_addr_w(SOFT_ADDRESS_WIDTH-1 - i) = '1'
+            and found = '0'
             and (REG_BOUND >= i or i = PC_REG or i >= MEM_BOUND)
           then
 
             -- write data from external peripheral to the decoded register
             slv_regs(i) <= soft_data_i;
-            temp_i := 1;
+            found := '1';
 
           end if;
         end loop;
 
-        if temp_i = 1
-        then
-          soft_write_ack <= '1';
-        else
-          soft_write_ack <= '0';
-        end if;
+        soft_write_ack <= found;
 
       end if;
 
@@ -760,20 +569,8 @@ begin
       send_inst_ack      <= '0';
       store_ack          <= '0';
       soft_write_ack     <= '0';
-    end if;
+    end if CLEAR_FLAGS_EVENT;
 
   end process DO_UPDATE;
-
-  -- trigger soft reads asynchronously
-  DO_TRIGGER_READ : process ( soft_addr_r )
-  is
-  begin
-    if soft_read_trigger /= '0' and soft_read_trigger /= '1'
-    then
-      soft_read_trigger <= '1';
-    else
-      soft_read_trigger <= '1' xor soft_read_trigger;
-    end if;
-  end process;
 
 end IMP;

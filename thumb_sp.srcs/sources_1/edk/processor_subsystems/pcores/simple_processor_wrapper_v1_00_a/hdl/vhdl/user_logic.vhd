@@ -60,6 +60,8 @@ use proc_common_v3_00_a.proc_common_pkg.all;
 -- DO NOT EDIT ABOVE THIS LINE --------------------
 
 --USER libraries added here
+library simple_processor_wrapper_v1_00_a;
+use simple_processor_wrapper_v1_00_a.simple_processor;
 
 ------------------------------------------------------------------------------
 -- Entity section
@@ -130,6 +132,14 @@ end entity user_logic;
 architecture IMP of user_logic is
 
   --USER signal declarations added here, as needed for user logic
+  constant NUM_REGS         : integer          := 293;
+  signal extern_trigger     : std_logic;
+  signal soft_addr_w        : std_logic_vector(C_NUM_REG-1 downto 0);
+  signal soft_addr_r        : std_logic_vector(C_NUM_REG-1 downto 0);
+  signal soft_data_w        : std_logic_vector(C_SLV_DWIDTH-1 downto 0);
+  signal soft_data_r        : std_logic_vector(C_SLV_DWIDTH-1 downto 0);
+  signal ack_read           : std_logic;
+  signal ack_write          : std_logic;
 
   ------------------------------------------
   -- Signals for user logic slave model s/w accessible register example
@@ -175,6 +185,28 @@ architecture IMP of user_logic is
 begin
 
   --USER logic implementation added here
+  SIMPLE_PROCESSOR_I : entity simple_processor_wrapper_v1_00_a.simple_processor
+    generic map
+    (
+      NUM_REGS              => NUM_REGS,
+      ADDR_SPACE            => C_NUM_REG,
+      DATA_WIDTH            => C_SLV_DWIDTH
+    )
+    port map
+    (
+      extern_trigger        => extern_trigger,
+      soft_addr_w           => soft_addr_w,
+      soft_addr_r           => soft_addr_r,
+      soft_data_w           => soft_data_w,
+      soft_data_r           => soft_data_r,
+      ack_read              => ack_read,
+      ack_write             => ack_write,
+      Clk                   => Bus2IP_Clk,
+      Reset                 => Bus2IP_Resetn
+    );
+  soft_addr_w <= Bus2IP_WrCE;
+  soft_addr_r <= Bus2IP_RdCE;
+  soft_data_w <= Bus2IP_Data;
 
   ------------------------------------------
   -- Example code to read/write user logic slave model s/w accessible registers
@@ -483,8 +515,10 @@ begin
   ------------------------------------------
   -- Example code to drive IP to Bus signals
   ------------------------------------------
-  IP2Bus_Data  <= slv_ip2bus_data when slv_read_ack = '1' else
-                  (others => '0');
+  IP2Bus_Data  <=
+--    slv_ip2bus_data when slv_read_ack = '1'
+    soft_data_r when slv_read_ack = '1'
+    else (others => '0');
 
   IP2Bus_WrAck <= slv_write_ack;
   IP2Bus_RdAck <= slv_read_ack;

@@ -120,14 +120,16 @@ is
   signal alu_b               : std_logic_vector(31 downto 0);
   signal alu_out             : std_logic_vector(31 downto 0);
 
-  signal tmp_sig : std_logic;
-
 begin
 
   ---
   -- Triggers all processor events in order
   ---
   STATE_MACHINE_I : entity simple_processor_wrapper_v1_00_a.state_machine
+    generic map
+    (
+      SOFT_ADDRESS_WIDTH     => ADDR_SPACE
+    )
     port map
     (
       reg_file_reset_ack     => reg_file_reset_ack,
@@ -139,7 +141,10 @@ begin
       store_ack              => store_ack,
       soft_write_ack         => soft_write_ack,
       soft_read_ack          => soft_read_ack,
-      extern_trigger         => extern_trigger,
+      soft_addr_r            => soft_addr_r,
+      soft_addr_w            => soft_addr_w,
+      axi_read_ack           => ack_read,
+      axi_write_ack          => ack_write,
       state                  => state,
       Clk                    => Clk,
       Reset                  => Reset
@@ -188,9 +193,6 @@ begin
       store_ack              => store_ack,
       soft_read_ack          => soft_read_ack,
       soft_write_ack         => soft_write_ack,
-      extern_trigger         => tmp_sig,
-      read_axi_ack           => ack_read,
-      write_axi_ack          => ack_write,
       state                  => state
     );
 
@@ -200,7 +202,7 @@ begin
   DECODER_I : entity simple_processor_wrapper_v1_00_a.decoder
     generic map
     (
-      data_width             => 32
+      DATA_WIDTH             => 32
     )
     port map
     (
@@ -229,7 +231,7 @@ begin
   ALU_I : entity simple_processor_wrapper_v1_00_a.alu
     generic map
     (
-      data_width             => 32
+      DATA_WIDTH             => 32
     )
     port map
     (

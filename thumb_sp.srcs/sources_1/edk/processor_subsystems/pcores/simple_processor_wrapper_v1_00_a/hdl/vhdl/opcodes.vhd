@@ -14,8 +14,8 @@ package opcodes is
   constant LSL_Rd_Rm_I       : integer          := 0;
   constant LSR_Rd_Rm_I       : integer          := 1;
   constant ASR_Rd_Rm_I       : integer          := 2;
-  constant ADD_Rd_Rn_Rm      : integer          := 3;
-  constant SUB_Rd_Rn_Rm      : integer          := 4;
+  constant ADD_Rd_Rm_Rn      : integer          := 3;
+  constant SUB_Rd_Rm_Rn      : integer          := 4;
   constant ADD_Rd_Rn_I       : integer          := 5;
   constant SUB_Rd_Rn_I       : integer          := 6;
   constant MOV_Rd_I          : integer          := 7;
@@ -36,7 +36,7 @@ package opcodes is
   constant CMN_Rm_Rn         : integer          := 22;
   constant ORR_Rd_Rm         : integer          := 23;
   constant MUL_Rd_Rm         : integer          := 24;
-  constant BIC_Rn_Rm         : integer          := 25;
+  constant BIC_Rm_Rn         : integer          := 25;
   constant MVN_Rd_Rm         : integer          := 26;
   constant ADD_Rd_Rm         : integer          := 27;
   constant CMP_Rm_Rn_2       : integer          := 28;
@@ -44,14 +44,14 @@ package opcodes is
   constant BX_Rm             : integer          := 30;
   constant BLX_Rm            : integer          := 31;
   constant LDR_Rd_IPC        : integer          := 32;
-  constant STR_Rd_Rn_Rm      : integer          := 33;
-  constant STRH_Rd_Rn_Rm     : integer          := 34;
-  constant STRB_Rd_Rn_Rm     : integer          := 35;
-  constant LDRSB_Rd_Rn_Rm    : integer          := 36;
-  constant LDR_Rd_Rn_Rm      : integer          := 37;
-  constant LDRH_Rd_Rn_Rm     : integer          := 38;
-  constant LDRB_Rd_Rn_Rm     : integer          := 39;
-  constant LDRSH_Rd_Rn_Rm    : integer          := 40;
+  constant STR_Rd_Rm_Rn      : integer          := 33;
+  constant STRH_Rd_Rm_Rn     : integer          := 34;
+  constant STRB_Rd_Rm_Rn     : integer          := 35;
+  constant LDRSB_Rd_Rm_Rn    : integer          := 36;
+  constant LDR_Rd_Rm_Rn      : integer          := 37;
+  constant LDRH_Rd_Rm_Rn     : integer          := 38;
+  constant LDRB_Rd_Rm_Rn     : integer          := 39;
+  constant LDRSH_Rd_Rm_Rn    : integer          := 40;
   constant STR_Rd_Rn_I       : integer          := 41;
   constant LDR_Rd_Rn_I       : integer          := 42;
   constant STRB_Rd_Rn_I      : integer          := 43;
@@ -93,29 +93,6 @@ package opcodes is
   constant LE                : integer          := 13;
   constant AL                : integer          := 14;
   constant NV                : integer          := 15;
-
-  -- hints provided for opcode functionality
-  constant ARITH_IM8         : integer          := 0;
-  constant ARITH_IM11        : integer          := 1;
-  constant ARITH_DST_IM8    : integer          := 2;
-  constant ARITH_RGM_DST     : integer          := 3;
-  constant ARITH_SRC_DST     : integer          := 4;
-  constant ARITH_IM5_RGM_DST : integer          := 5;
-  constant ARITH_IM3_RGN_DST : integer          := 6;
-  constant ARITH_RGM_RGN_DST : integer          := 7;
-  constant ARITH_HFLAGS      : integer          := 8;
-  constant TEST_RGN_IM8     : integer          := 9;
-  constant TEST_RGN_RGM      : integer          := 10;
-  constant TEST_HFLAGS       : integer          := 11;
-  constant LOAD_DST_IM8      : integer          := 12;
-  constant STORE_DST_IM8     : integer          := 13;
-  constant LOAD_IM5_RGN_DST  : integer          := 14;
-  constant STORE_IM5_RGN_DST : integer          := 15;
-  constant LOAD_RGM_RGN_DST  : integer          := 16;
-  constant STORE_RGM_RGN_DST : integer          := 17;
-  constant LOAD_REGLIST      : integer          := 18;
-  constant STORE_REGLIST     : integer          := 19;
-  constant PUSH_POP          : integer          := 20;
 
 end package opcodes;
 

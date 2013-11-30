@@ -2,7 +2,7 @@
 -- Version:           1.00.a
 -- Description:       Simple ARM Thumb(R) processor
 -- Date Created:      Wed, Nov 13, 2013 20:59:21
--- Last Modified:     Tue, Nov 26, 2013 14:09:25
+-- Last Modified:     Fri, Dec 06, 2013 00:24:53
 -- VHDL Standard:     VHDL'93
 -- Author:            Sean McClain <mcclains@ainfosec.com>
 -- Copyright:         (c) 2013 Assured Information Security, All Rights Reserved
@@ -22,6 +22,8 @@ use simple_processor_wrapper_v1_00_a.decoder;
 use simple_processor_wrapper_v1_00_a.reg_file;
 use simple_processor_wrapper_v1_00_a.state_machine;
 use simple_processor_wrapper_v1_00_a.opcodes.all;
+use simple_processor_wrapper_v1_00_a.states.all;
+use simple_processor_wrapper_v1_00_a.reg_file_constants.all;
 
 ---
 -- A single instruction ARM Thumb(R) processor with no flow control
@@ -31,14 +33,8 @@ entity simple_processor
 is
   generic
   (
-    -- number of registers in register file
-    NUM_REGS                : integer          := 32;
-
     -- number of registers addressable by external peripheral
-    ADDR_SPACE              : integer          := 32;
-
-    -- width of a single register
-    DATA_WIDTH              : integer          := 32
+    ADDR_SPACE              : integer          := 32
   );
   port
   (
@@ -65,7 +61,7 @@ is
   signal zero                : std_logic_vector(31 downto 0);
 
   -- current processing state
-  signal state               : integer;
+  signal state               : integer range STATE_MIN to STATE_MAX;
 
   -- acknowledgements to drive the state machine
   signal reg_file_reset_ack  : std_logic;
@@ -83,9 +79,6 @@ is
 
   -- decoded instruction
   signal opcode              : integer;
-
-  -- hint for the decoded instruction's functionality
-  signal op_type             : integer;
 
   -- argument register addresses m, n, source, and dest
   signal Rm                  : std_logic_vector(2 downto 0);
@@ -119,6 +112,30 @@ is
   signal alu_a               : std_logic_vector(31 downto 0);
   signal alu_b               : std_logic_vector(31 downto 0);
   signal alu_out             : std_logic_vector(31 downto 0);
+
+  -- write enables for register file
+  signal wr_en               : std_logic_vector(WR_EN_SIZEOF-1 downto 0);
+
+  -- retrieved register values from register file
+  signal sp_plus_off         : std_logic_vector(DATA_WIDTH-1 downto 0);
+  signal pc_plus_off         : std_logic_vector(DATA_WIDTH-1 downto 0);
+  signal lr_plus_off         : std_logic_vector(DATA_WIDTH-1 downto 0);
+  signal rn_plus_off         : std_logic_vector(DATA_WIDTH-1 downto 0);
+  signal rm_plus_rn          : std_logic_vector(DATA_WIDTH-1 downto 0);
+  signal rm_hh_reg           : std_logic_vector(DATA_WIDTH-1 downto 0);
+  signal rm_hl_reg           : std_logic_vector(DATA_WIDTH-1 downto 0);
+  signal rn_hh_reg           : std_logic_vector(DATA_WIDTH-1 downto 0);
+  signal rn_hl_reg           : std_logic_vector(DATA_WIDTH-1 downto 0);
+  signal rm_reg              : std_logic_vector(DATA_WIDTH-1 downto 0);
+  signal rn_reg              : std_logic_vector(DATA_WIDTH-1 downto 0);
+  signal rs_reg              : std_logic_vector(DATA_WIDTH-1 downto 0);
+  signal rd_reg              : std_logic_vector(DATA_WIDTH-1 downto 0);
+  signal sp_reg              : std_logic_vector(DATA_WIDTH-1 downto 0);
+  signal pc_reg              : std_logic_vector(DATA_WIDTH-1 downto 0);
+  signal lr_reg              : std_logic_vector(DATA_WIDTH-1 downto 0);
+  signal sp                  : integer;
+  signal pc                  : integer;
+  signal lr                  : integer;
 
 begin
 
@@ -156,15 +173,10 @@ begin
   REG_FILE_I : entity simple_processor_wrapper_v1_00_a.reg_file
     generic map
     (
-      NUM_REGS               => NUM_REGS,
-      SOFT_ADDRESS_WIDTH     => ADDR_SPACE,
-      DATA_WIDTH             => DATA_WIDTH
+      SOFT_ADDRESS_WIDTH     => ADDR_SPACE
     )
     port map
     (
-      instruction            => raw_instruction,
-      opcode                 => opcode,
-      op_type                => op_type,
       Rm                     => Rm,
       Rn                     => Rn,
       Rs                     => Rs,
@@ -173,43 +185,89 @@ begin
       Imm_5                  => Imm_5,
       Imm_8                  => Imm_8,
       Imm_11                 => Imm_11,
-      zero                   => zero,
       flag_lr_pc             => flag_lr_pc,
       flags_h                => flags_h,
       alu_out                => alu_out,
+      wr_en                  => wr_en,
       flag_n                 => flag_n,
       flag_z                 => flag_z,
       flag_c                 => flag_c,
       flag_v                 => flag_v,
-      alu_a                  => alu_a,
-      alu_b                  => alu_b,
       soft_addr_r            => soft_addr_r,
       soft_addr_w            => soft_addr_w,
-      soft_data_i            => soft_data_w,
-      soft_data_o            => soft_data_r,
+      soft_data_in           => soft_data_w,
+      soft_data_out          => soft_data_r,
+      instruction            => raw_instruction,
       reg_file_reset_ack     => reg_file_reset_ack,
       send_inst_ack          => send_inst_ack,
       load_ack               => load_ack,
       store_ack              => store_ack,
       soft_read_ack          => soft_read_ack,
       soft_write_ack         => soft_write_ack,
+      sp_plus_off            => sp_plus_off,
+      pc_plus_off            => pc_plus_off,
+      lr_plus_off            => lr_plus_off,
+      rn_plus_off            => rn_plus_off,
+      rm_plus_rn             => rm_plus_rn,
+      rm_hh_reg              => rm_hh_reg,
+      rm_hl_reg              => rm_hl_reg,
+      rn_hh_reg              => rn_hh_reg,
+      rn_hl_reg              => rn_hl_reg,
+      rm_reg                 => rm_reg,
+      rn_reg                 => rn_reg,
+      rs_reg                 => rs_reg,
+      rd_reg                 => rd_reg,
+      sp_reg                 => sp_reg,
+      pc_reg                 => lr_reg,
+      lr_reg                 => pc_reg,
+      sp_val                 => sp,
+      pc_val                 => pc,
+      lr_val                 => lr,
       state                  => state
+  );
+
+  ---
+  -- Selects 2 register file outputs to send into the ALU,
+  --  and selects which write enables are on in the register file
+  ---
+  MUXER_I : entity simple_processor_wrapper_v1_00_a.muxer
+    port map
+    (
+      opcode                 => opcode,
+      Imm_3                  => Imm_3,
+      Imm_5                  => Imm_5,
+      Imm_8                  => Imm_8,
+      Imm_11                 => Imm_11,
+      sp_plus_off            => sp_plus_off,
+      pc_plus_off            => pc_plus_off,
+      rn_plus_off            => rn_plus_off,
+      rm_plus_rn             => rm_plus_rn,
+      rm_hh_reg              => rm_hh_reg,
+      rm_hl_reg              => rm_hl_reg,
+      rn_hh_reg              => rn_hh_reg,
+      rn_hl_reg              => rn_hl_reg,
+      rm_reg                 => rm_reg,
+      rn_reg                 => rn_reg,
+      rs_reg                 => rs_reg,
+      rd_reg                 => rd_reg,
+      sp_reg                 => sp_reg,
+      pc_reg                 => lr_reg,
+      sp                     => sp,
+      pc                     => pc,
+      alu_a                  => alu_a,
+      alu_b                  => alu_b,
+      wr_en                  => wr_en
     );
 
   ---
   -- ARM Thumb(R) decoder
   ---
   DECODER_I : entity simple_processor_wrapper_v1_00_a.decoder
-    generic map
-    (
-      DATA_WIDTH             => 32
-    )
     port map
     (
       data                   => raw_instruction,
       condition              => condition,
       opcode                 => opcode,
-      op_type                => op_type,
       Rm                     => Rm,
       Rn                     => Rn,
       Rs                     => Rs,
@@ -229,10 +287,6 @@ begin
   -- Arithmetic Logical Unit
   ---
   ALU_I : entity simple_processor_wrapper_v1_00_a.alu
-    generic map
-    (
-      DATA_WIDTH             => 32
-    )
     port map
     (
       a                      => alu_a,

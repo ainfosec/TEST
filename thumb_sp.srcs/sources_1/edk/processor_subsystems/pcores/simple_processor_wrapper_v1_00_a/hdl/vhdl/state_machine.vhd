@@ -2,7 +2,7 @@
 -- Version:           0.01
 -- Description:       Controls event ordering
 -- Date Created:      Tue, Nov 19, 2013 16:00:21
--- Last Modified:     Thu, Nov 28, 2013 15:06:23
+-- Last Modified:     Fri, Dec 06, 2013 00:24:45
 -- VHDL Standard:     VHDL '93
 -- Author:            Sean McClain <mcclains@ainfosec.com>
 -- Copyright:         (c) 2013 Assured Information Security, All Rights Reserved
@@ -53,7 +53,7 @@ is
     axi_write_ack      : out std_logic;
 
     -- main state variable, used in a manner similar to a clock
-    state              : inout integer;
+    state              : inout integer range STATE_MIN to STATE_MAX;
 
     -- clock
     Clk                : in    std_logic;

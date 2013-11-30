@@ -8,8 +8,11 @@ lib proc_common_v3_00_a  all
 lib axi_lite_ipif_v1_01_a  all 
 lib simple_processor_wrapper_v1_00_a opcodes vhdl
 lib simple_processor_wrapper_v1_00_a states vhdl
+lib simple_processor_wrapper_v1_00_a reg_file_constants vhdl
+lib simple_processor_wrapper_v1_00_a memory vhdl
 lib simple_processor_wrapper_v1_00_a alu vhdl
 lib simple_processor_wrapper_v1_00_a decoder vhdl
+lib simple_processor_wrapper_v1_00_a muxer vhdl
 lib simple_processor_wrapper_v1_00_a reg_file vhdl
 lib simple_processor_wrapper_v1_00_a state_machine vhdl
 lib simple_processor_wrapper_v1_00_a simple_processor vhdl

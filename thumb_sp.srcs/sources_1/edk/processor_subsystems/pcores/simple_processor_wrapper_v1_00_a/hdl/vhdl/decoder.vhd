@@ -2,7 +2,7 @@
 -- Version:           1.00.a
 -- Description:       takes a binary function and turns it into fetched data
 -- Date Created:      Wed, Nov 13, 2013 20:59:21
--- Last Modified:     Tue, Nov 26, 2013 14:08:03
+-- Last Modified:     Fri, Dec 06, 2013 00:22:44
 -- VHDL Standard:     VHDL'93
 -- Author:            Sean McClain <mcclains@ainfosec.com>
 -- Copyright:         (c) 2013 Assured Information Security, All Rights Reserved
@@ -17,6 +17,7 @@ use proc_common_v3_00_a.proc_common_pkg.all;
 library simple_processor_wrapper_v1_00_a;
 use simple_processor_wrapper_v1_00_a.opcodes.all;
 use simple_processor_wrapper_v1_00_a.states.all;
+use simple_processor_wrapper_v1_00_a.reg_file_constants.all;
 
 ---
 -- Converts a 16 bit ARM Thumb instruction in binary format into
@@ -24,11 +25,6 @@ use simple_processor_wrapper_v1_00_a.states.all;
 ---
 entity decoder
 is
-  generic
-  (
-    -- bit width of the data in this file (typically 32 or 64)
-    DATA_WIDTH  : integer            := 32
-  );
   port
   (
     -- 16 bit binary instruction
@@ -39,9 +35,6 @@ is
 
     -- code for one of 64 unique ARM Thumb operations
     opcode     : out   integer;
-
-    -- hint provided for this opcode's functionality
-    op_type    : out   integer;
 
     -- one of four data register addresses to pull information from
     --  or store information in
@@ -84,7 +77,7 @@ is
     decode_ack : out   std_logic;
 
     -- lets us know when to trigger a decode event
-    state      : in    integer
+    state      : in    integer range STATE_MIN to STATE_MAX
   );
 
 end entity decoder;
@@ -147,7 +140,6 @@ begin
         or data(15 downto 8) = "11011110"
       then
         opcode  <= UNUSED;
-        op_type <= UNUSED;
         Rm_l := (others => '0');
         Rn_l := (others => '0');
         Rs_l := (others => '0');
@@ -170,7 +162,6 @@ begin
               -- LSL
               when "00"   =>
                 opcode  <= LSL_Rd_Rm_I;
-                op_type <= ARITH_IM5_RGM_DST;
                 Rm_l := data(5 downto 3);
                 Rn_l := (others => '0');
                 Rs_l := (others => '0');
@@ -179,7 +170,6 @@ begin
               -- LSR
               when "01"   =>
                 opcode  <= LSR_Rd_Rm_I;
-                op_type <= ARITH_IM5_RGM_DST;
                 Rm_l := data(5 downto 3);
                 Rn_l := (others => '0');
                 Rs_l := (others => '0');
@@ -188,7 +178,6 @@ begin
               -- ASR
               when "10"   =>
                 opcode  <= ASR_Rd_Rm_I;
-                op_type <= ARITH_IM5_RGM_DST;
                 Rm_l := data(5 downto 3);
                 Rn_l := (others => '0');
                 Rs_l := (others => '0');
@@ -204,8 +193,7 @@ begin
 
                   -- ADD
                   when "00"   =>
-                    opcode  <= ADD_Rd_Rn_Rm;
-                    op_type <= ARITH_RGM_RGN_DST;
+                    opcode  <= ADD_Rd_Rm_Rn;
                     Rm_l := data(8 downto 6);
                     Rn_l := data(5 downto 3);
                     Rs_l := (others => '0');
@@ -213,8 +201,7 @@ begin
 
                   -- SUB
                   when "01"   =>
-                    opcode  <= SUB_Rd_Rn_Rm;
-                    op_type <= ARITH_RGM_RGN_DST;
+                    opcode  <= SUB_Rd_Rm_Rn;
                     Rm_l := data(8 downto 6);
                     Rn_l := data(5 downto 3);
                     Rs_l := (others => '0');
@@ -225,7 +212,6 @@ begin
                   -- ADD
                   when "10"   =>
                     opcode  <= ADD_Rd_Rn_I;
-                    op_type <= ARITH_IM3_RGN_DST;
                     Rm_l := (others => '0');
                     Rn_l := data(5 downto 3);
                     Rs_l := (others => '0');
@@ -234,7 +220,6 @@ begin
                   -- SUB
                   when others =>
                     opcode  <= SUB_Rd_Rn_I;
-                    op_type <= ARITH_IM3_RGN_DST;
                     Rm_l := (others => '0');
                     Rn_l := data(5 downto 3);
                     Rs_l := (others => '0');
@@ -254,7 +239,6 @@ begin
               -- MOV
               when "00"   =>
                 opcode  <= MOV_Rd_I;
-                op_type <= ARITH_DST_IM8;
                 Rm_l := (others => '0');
                 Rn_l := (others => '0');
                 Rs_l := (others => '0');
@@ -265,7 +249,6 @@ begin
               -- CMP
               when "01"   =>
                 opcode  <= CMP_Rn_I;
-                op_type <= TEST_RGN_IM8;
                 Rm_l := (others => '0');
                 Rn_l := data(10 downto 8);
                 Rs_l := (others => '0');
@@ -276,7 +259,6 @@ begin
               -- ADD
               when "10"   =>
                 opcode  <= ADD_Rd_I;
-                op_type <= ARITH_DST_IM8;
                 Rm_l := (others => '0');
                 Rn_l := (others => '0');
                 Rs_l := (others => '0');
@@ -285,7 +267,6 @@ begin
               -- SUB
               when others =>
                 opcode  <= SUB_Rd_I;
-                op_type <= ARITH_DST_IM8;
                 Rm_l := (others => '0');
                 Rn_l := (others => '0');
                 Rs_l := (others => '0');
@@ -324,7 +305,6 @@ begin
                   -- AND
                   when "0000" =>
                     opcode  <= AND_Rd_Rm;
-                    op_type <= ARITH_RGM_DST;
                     Rm_l := data(5 downto 3);
                     Rn_l := (others => '0');
                     Rs_l := (others => '0');
@@ -333,7 +313,6 @@ begin
                   -- EOR
                   when "0001" =>
                     opcode  <= EOR_Rd_Rm;
-                    op_type <= ARITH_RGM_DST;
                     Rm_l := data(5 downto 3);
                     Rn_l := (others => '0');
                     Rs_l := (others => '0');
@@ -344,7 +323,6 @@ begin
                   -- LSL
                   when "0010" =>
                     opcode  <= LSL_Rd_Rs;
-                    op_type <= ARITH_SRC_DST;
                     Rm_l := (others => '0');
                     Rn_l := (others => '0');
                     Rs_l := data(5 downto 3);
@@ -353,7 +331,6 @@ begin
                   -- LSR
                   when "0011" =>
                     opcode  <= LSR_Rd_Rs;
-                    op_type <= ARITH_SRC_DST;
                     Rm_l := (others => '0');
                     Rn_l := (others => '0');
                     Rs_l := data(5 downto 3);
@@ -362,7 +339,6 @@ begin
                   -- ASR
                   when "0100" =>
                     opcode  <= ASR_Rd_Rs;
-                    op_type <= ARITH_SRC_DST;
                     Rm_l := (others => '0');
                     Rn_l := (others => '0');
                     Rs_l := data(5 downto 3);
@@ -373,7 +349,6 @@ begin
                   -- ADC
                   when "0101" =>
                     opcode  <= ADC_Rd_Rm;
-                    op_type <= ARITH_RGM_DST;
                     Rm_l := data(5 downto 3);
                     Rn_l := (others => '0');
                     Rs_l := (others => '0');
@@ -382,7 +357,6 @@ begin
                   -- SBC
                   when "0110" =>
                     opcode  <= SBC_Rd_Rm;
-                    op_type <= ARITH_RGM_DST;
                     Rm_l := data(5 downto 3);
                     Rn_l := (others => '0');
                     Rs_l := (others => '0');
@@ -393,7 +367,6 @@ begin
                   -- ROR
                   when "0111" =>
                     opcode  <= ROR_Rd_Rs;
-                    op_type <= ARITH_SRC_DST;
                     Rm_l := (others => '0');
                     Rn_l := (others => '0');
                     Rs_l := data(5 downto 3);
@@ -404,7 +377,6 @@ begin
                   -- TST
                   when "1000" =>
                     opcode  <= TST_Rm_Rn;
-                    op_type <= TEST_RGN_RGM;
                     Rm_l := data(2 downto 0);
                     Rn_l := data(5 downto 3);
                     Rs_l := (others => '0');
@@ -415,7 +387,6 @@ begin
                   -- NEG
                   when "1001" =>
                     opcode  <= NEG_Rd_Rm;
-                    op_type <= ARITH_RGM_DST;
                     Rm_l := data(5 downto 3);
                     Rn_l := (others => '0');
                     Rs_l := (others => '0');
@@ -426,7 +397,6 @@ begin
                   -- CMP
                   when "1010" =>
                     opcode  <= CMP_Rm_Rn;
-                    op_type <= TEST_RGN_RGM;
                     Rm_l := data(2 downto 0);
                     Rn_l := data(5 downto 3);
                     Rs_l := (others => '0');
@@ -435,7 +405,6 @@ begin
                   -- CMN
                   when "1011" =>
                     opcode  <= CMN_Rm_Rn;
-                    op_type <= TEST_RGN_RGM;
                     Rm_l := data(2 downto 0);
                     Rn_l := data(5 downto 3);
                     Rs_l := (others => '0');
@@ -446,7 +415,6 @@ begin
                   -- ORR
                   when "1100" =>
                     opcode  <= ORR_Rd_Rm;
-                    op_type <= ARITH_RGM_DST;
                     Rm_l := data(5 downto 3);
                     Rn_l := (others => '0');
                     Rs_l := (others => '0');
@@ -455,7 +423,6 @@ begin
                   -- MUL
                   when "1101" =>
                     opcode  <= MUL_Rd_Rm;
-                    op_type <= ARITH_RGM_DST;
                     Rm_l := data(5 downto 3);
                     Rn_l := (others => '0');
                     Rs_l := (others => '0');
@@ -465,8 +432,7 @@ begin
 
                   -- BIC
                   when "1110" =>
-                    op_type <= TEST_RGN_RGM;
-                    opcode  <= BIC_Rn_Rm;
+                    opcode  <= BIC_Rm_Rn;
                     Rm_l := data(2 downto 0);
                     Rn_l := data(5 downto 3);
                     Rs_l := (others => '0');
@@ -476,7 +442,6 @@ begin
 
                   -- MVN
                   when others =>
-                    op_type <= ARITH_RGM_DST;
                     opcode  <= MVN_Rd_Rm;
                     Rm_l := data(5 downto 3);
                     Rn_l := (others => '0');
@@ -497,7 +462,6 @@ begin
                   -- ADD
                   when "00"   =>
                     opcode  <= ADD_Rd_Rm;
-                    op_type <= ARITH_HFLAGS;
                     Rm_l := data(5 downto 3);
                     Rn_l := (others => '0');
                     Rs_l := (others => '0');
@@ -508,7 +472,6 @@ begin
                   -- CMP
                   when "01"   =>
                     opcode  <= CMP_Rm_Rn_2;
-                    op_type <= TEST_HFLAGS;
                     Rm_l := data(2 downto 0);
                     Rn_l := data(5 downto 3);
                     Rs_l := (others => '0');
@@ -519,7 +482,6 @@ begin
                   -- MOV
                   when "10"   =>
                     opcode  <= MOV_Rd_Rm;
-                    op_type <= ARITH_HFLAGS;
                     Rm_l := data(5 downto 3);
                     Rn_l := (others => '0');
                     Rs_l := (others => '0');
@@ -535,7 +497,6 @@ begin
                       -- BX
                       when '0' =>
                         opcode  <= BX_Rm;
-                        op_type <= TEST_HFLAGS;
                         Rm_l := data(5 downto 3);
                         Rn_l := (others => '0');
                         Rs_l := (others => '0');
@@ -544,7 +505,6 @@ begin
                       -- BLX
                       when others =>
                         opcode  <= BLX_Rm;
-                        op_type <= TEST_HFLAGS;
                         Rm_l := data(5 downto 3);
                         Rn_l := (others => '0');
                         Rs_l := (others => '0');
@@ -558,7 +518,6 @@ begin
               -- LDR
               when "010" =>
                 opcode  <= LDR_Rd_IPC;
-                op_type <= LOAD_DST_IM8;
                 Rm_l := (others => '0');
                 Rn_l := (others => '0');
                 Rs_l := (others => '0');
@@ -567,7 +526,6 @@ begin
               -- LDR (again, HDL has no flow-through in case statements)
               when "011" =>
                 opcode  <= LDR_Rd_IPC;
-                op_type <= LOAD_DST_IM8;
                 Rm_l := (others => '0');
                 Rn_l := (others => '0');
                 Rs_l := (others => '0');
@@ -580,8 +538,7 @@ begin
 
                   -- STR
                   when "000"  =>
-                    opcode  <= STR_Rd_Rn_Rm;
-                    op_type <= STORE_RGM_RGN_DST;
+                    opcode  <= STR_Rd_Rm_Rn;
                     Rm_l := data(8 downto 6);
                     Rn_l := data(5 downto 3);
                     Rs_l := (others => '0');
@@ -589,8 +546,7 @@ begin
 
                   -- STRH
                   when "001"  =>
-                    opcode  <= STRH_Rd_Rn_Rm;
-                    op_type <= STORE_RGM_RGN_DST;
+                    opcode  <= STRH_Rd_Rm_Rn;
                     Rm_l := data(8 downto 6);
                     Rn_l := data(5 downto 3);
                     Rs_l := (others => '0');
@@ -598,8 +554,7 @@ begin
 
                   -- STRB
                   when "010"  =>
-                    opcode  <= STRB_Rd_Rn_Rm;
-                    op_type <= STORE_RGM_RGN_DST;
+                    opcode  <= STRB_Rd_Rm_Rn;
                     Rm_l := data(8 downto 6);
                     Rn_l := data(5 downto 3);
                     Rs_l := (others => '0');
@@ -607,8 +562,7 @@ begin
 
                   -- LDRSB
                   when "011"  =>
-                    opcode  <= LDRSB_Rd_Rn_Rm;
-                    op_type <= LOAD_RGM_RGN_DST;
+                    opcode  <= LDRSB_Rd_Rm_Rn;
                     Rm_l := data(8 downto 6);
                     Rn_l := data(5 downto 3);
                     Rs_l := (others => '0');
@@ -616,8 +570,7 @@ begin
 
                   -- LDR
                   when "100"  =>
-                    opcode  <= LDR_Rd_Rn_Rm;
-                    op_type <= LOAD_RGM_RGN_DST;
+                    opcode  <= LDR_Rd_Rm_Rn;
                     Rm_l := data(8 downto 6);
                     Rn_l := data(5 downto 3);
                     Rs_l := (others => '0');
@@ -625,8 +578,7 @@ begin
 
                   -- LDRH
                   when "101"  =>
-                    opcode  <= LDRH_Rd_Rn_Rm;
-                    op_type <= LOAD_RGM_RGN_DST;
+                    opcode  <= LDRH_Rd_Rm_Rn;
                     Rm_l := data(8 downto 6);
                     Rn_l := data(5 downto 3);
                     Rs_l := (others => '0');
@@ -634,8 +586,7 @@ begin
 
                   -- LDRB
                   when "110"  =>
-                    opcode  <= LDRB_Rd_Rn_Rm;
-                    op_type <= LOAD_RGM_RGN_DST;
+                    opcode  <= LDRB_Rd_Rm_Rn;
                     Rm_l := data(8 downto 6);
                     Rn_l := data(5 downto 3);
                     Rs_l := (others => '0');
@@ -643,8 +594,7 @@ begin
 
                   -- LDRSH
                   when others =>
-                    opcode  <= LDRSH_Rd_Rn_Rm;
-                    op_type <= LOAD_RGM_RGN_DST;
+                    opcode  <= LDRSH_Rd_Rm_Rn;
                     Rm_l := data(8 downto 6);
                     Rn_l := data(5 downto 3);
                     Rs_l := (others => '0');
@@ -662,7 +612,6 @@ begin
               -- STR
               when "00"   =>
                 opcode  <= STR_Rd_Rn_I;
-                op_type <= STORE_IM5_RGN_DST;
                 Rm_l := (others => '0');
                 Rn_l := data(5 downto 3);
                 Rs_l := (others => '0');
@@ -671,7 +620,6 @@ begin
               -- LDR
               when "01"   =>
                 opcode  <= LDR_Rd_Rn_I;
-                op_type <= LOAD_IM5_RGN_DST;
                 Rm_l := (others => '0');
                 Rn_l := data(5 downto 3);
                 Rs_l := (others => '0');
@@ -680,7 +628,6 @@ begin
               -- STRB
               when "10"   =>
                 opcode  <= STRB_Rd_Rn_I;
-                op_type <= STORE_IM5_RGN_DST;
                 Rm_l := (others => '0');
                 Rn_l := data(5 downto 3);
                 Rs_l := (others => '0');
@@ -689,7 +636,6 @@ begin
               -- LDRB
               when others =>
                 opcode  <= LDRB_Rd_Rn_I;
-                op_type <= LOAD_IM5_RGN_DST;
                 Rm_l := (others => '0');
                 Rn_l := data(5 downto 3);
                 Rs_l := (others => '0');
@@ -707,7 +653,6 @@ begin
               -- STRH
               when "00"   =>
                 opcode  <= STRH_Rd_Rn_I;
-                op_type <= STORE_IM5_RGN_DST;
                 Rm_l := (others => '0');
                 Rn_l := data(5 downto 3);
                 Rs_l := (others => '0');
@@ -716,7 +661,6 @@ begin
               -- LDRH
               when "01"   =>
                 opcode  <= LDRH_Rd_Rn_I;
-                op_type <= LOAD_IM5_RGN_DST;
                 Rm_l := (others => '0');
                 Rn_l := data(5 downto 3);
                 Rs_l := (others => '0');
@@ -727,7 +671,6 @@ begin
               -- STR
               when "10"   =>
                 opcode  <= STR_Rd_I;
-                op_type <= STORE_DST_IM8;
                 Rm_l := (others => '0');
                 Rn_l := (others => '0');
                 Rs_l := (others => '0');
@@ -736,7 +679,6 @@ begin
               -- LDR
               when others =>
                 opcode  <= LDR_Rd_ISP;
-                op_type <= LOAD_DST_IM8;
                 Rm_l := (others => '0');
                 Rn_l := (others => '0');
                 Rs_l := (others => '0');
@@ -756,7 +698,6 @@ begin
               -- ADD
               when "00"   =>
                 opcode  <= ADD_Rd_IPC;
-                op_type <= ARITH_DST_IM8;
                 Rm_l := (others => '0');
                 Rn_l := (others => '0');
                 Rs_l := (others => '0');
@@ -765,7 +706,6 @@ begin
               -- ADD
               when "01"   =>
                 opcode  <= ADD_Rd_ISP;
-                op_type <= ARITH_DST_IM8;
                 Rm_l := (others => '0');
                 Rn_l := (others => '0');
                 Rs_l := (others => '0');
@@ -782,7 +722,6 @@ begin
                   -- SUB
                   when "000" =>
                     opcode  <= SUB_I;
-                    op_type <= ARITH_IM8;
                     Rm_l := (others => '0');
                     Rn_l := (others => '0');
                     Rs_l := (others => '0');
@@ -793,7 +732,6 @@ begin
                   -- PUSH
                   when "010" =>
                     opcode  <= PUSH_RL_LR;
-                    op_type <= PUSH_POP;
                     Rm_l := (others => '0');
                     Rn_l := (others => '0');
                     Rs_l := (others => '0');
@@ -802,7 +740,6 @@ begin
                   -- POP
                   when "110" =>
                     opcode  <= POP_RL_PC;
-                    op_type <= PUSH_POP;
                     Rm_l := (others => '0');
                     Rn_l := (others => '0');
                     Rs_l := (others => '0');
@@ -813,7 +750,6 @@ begin
                   -- BKPT
                   when others =>
                     opcode  <= BKPT_I;
-                    op_type <= ARITH_IM8;
                     Rm_l := (others => '0');
                     Rn_l := (others => '0');
                     Rs_l := (others => '0');
@@ -833,7 +769,6 @@ begin
               -- STMIA
               when "00"   =>
                 opcode  <= STMIA_RN_RL;
-                op_type <= STORE_REGLIST;
                 Rm_l := (others => '0');
                 Rn_l := data(10 downto 8);
                 Rs_l := (others => '0');
@@ -842,7 +777,6 @@ begin
               -- LDMIA
               when "01"   =>
                 opcode  <= LDMIA_RN_RL;
-                op_type <= LOAD_REGLIST;
                 Rm_l := (others => '0');
                 Rn_l := data(10 downto 8);
                 Rs_l := (others => '0');
@@ -856,7 +790,6 @@ begin
                   -- SWI
                   when "1111" =>
                     opcode  <= SWI_I;
-                    op_type <= ARITH_IM8;
                     Rm_l := (others => '0');
                     Rn_l := (others => '0');
                     Rs_l := (others => '0');
@@ -865,7 +798,6 @@ begin
                   -- B_COND
                   when others =>
                     opcode  <= B_COND_I;
-                    op_type <= ARITH_IM8;
                     Rm_l := (others => '0');
                     Rn_l := (others => '0');
                     Rs_l := (others => '0');
@@ -878,7 +810,6 @@ begin
           when others =>
 
             -- these are the same for all of these branch instructions
-            op_type <= ARITH_IM11;
             Rm_l := (others => '0');
             Rn_l := (others => '0');
             Rs_l := (others => '0');

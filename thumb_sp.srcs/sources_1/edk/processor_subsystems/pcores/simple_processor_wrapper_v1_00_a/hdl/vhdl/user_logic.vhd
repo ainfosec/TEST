@@ -188,9 +188,7 @@ begin
   SIMPLE_PROCESSOR_I : entity simple_processor_wrapper_v1_00_a.simple_processor
     generic map
     (
-      NUM_REGS              => NUM_REGS,
-      ADDR_SPACE            => C_NUM_REG,
-      DATA_WIDTH            => C_SLV_DWIDTH
+      ADDR_SPACE            => C_NUM_REG
     )
     port map
     (

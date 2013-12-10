@@ -102,6 +102,11 @@ begin
           mem(i) <=
             std_logic_vector(to_unsigned(MEM_BOUND, DATA_WIDTH));
 
+        -- default mode is user, using thumb
+        elsif i = CPSR_REG
+        then
+          mem(i) <= (DATA_WIDTH-1 downto 5 => '0') & PM_USER;
+
         -- hard-drive the modes in the saved program state registers
         elsif i = USRSS_REG
         then
@@ -133,9 +138,8 @@ begin
 
       end loop;
 
-      -- set acks
+      -- acknowledge reset complete
       wr_ack <= '1';
-      rd_ack <= '1';
 
     -- perform mode switches between writes
     elsif wr_en = "0000000000000000"
@@ -143,6 +147,9 @@ begin
 
       -- for determining whether switching in to / out of FIQ mode
       mode_was <= mode;
+
+      -- no write
+      wr_ack <= '0';
 
       -- swap the current and saved program state registers,
       --  minus the mode bits
@@ -206,28 +213,62 @@ begin
 
     -- no reset, do writes
     else
-      for i in 15 downto 0
-      loop
-        if wr_en(i) = '1'
+
+-- TODO: to limit compile times, only instruction and a single
+--       destination register are writeable
+
+--      for i in 15 downto 0
+--      loop
+--        if wr_en(i) = '1'
+        if wr_en(15) = '1'
         then
+          mem(INSTR_REG) <= data_in(15);
+        elsif wr_en(MEMIO_RDREG) = '1'
+        then
+          mem(4) <= data_in(MEMIO_RDREG);
 --          mem(wr_addr(i)) <= data_in(i);
--- TODO: fast compile mode, uses only 1st 16 registers
-          mem(i) <= data_in(i);
         end if;
-      end loop;
+--      end loop;
+
+      -- acknowledge write complete
+      wr_ack <= '1';
     end if;
 
   end process DO_WRITE;
 
   -- send data out from memory
-  DO_READ : for i in 15 downto 0
-  generate
-    with rd_en(i) select data_out(i) <=
--- TODO: fast compile mode, uses only 1st 16 registers
+
+-- TODO: to limit compile times, only 4 pre-defined registers
+--       for rm, rn, rs, and rd, respectively, are readable,
+--       and the contents of rd are copied to the external
+--       peripheral.
+
+--  DO_READ : for i in 15 downto 0
+--  generate
+--    with rd_en(i) select data_out(i) <=
 --      mem(rd_addr(i)) when '1',
-      mem(i) when '1',
-      zero when others;
-  end generate DO_READ;
+--      zero when others;
+--  end generate DO_READ;
+  with rd_en(MEMIO_RMREG) select data_out(MEMIO_RMREG) <=
+    mem(1) when '1',
+    zero when others;
+  with rd_en(MEMIO_RNREG) select data_out(MEMIO_RNREG) <=
+    mem(2) when '1',
+    zero when others;
+  with rd_en(MEMIO_RSREG) select data_out(MEMIO_RSREG) <=
+    mem(3) when '1',
+    zero when others;
+  with rd_en(MEMIO_RDREG) select data_out(MEMIO_RDREG) <=
+    mem(4) when '1',
+    zero when others;
+  with rd_en(0) select data_out(0) <=
+    mem(4) when '1',
+    zero when others;
+
+  -- acknowledge reads
+  with rd_en select rd_ack <=
+    '0' when "0000000000000000",
+    '1' when others;
 
   -- determine the operating mode
   mode <= mem(CPSR_REG)(4 downto 0);

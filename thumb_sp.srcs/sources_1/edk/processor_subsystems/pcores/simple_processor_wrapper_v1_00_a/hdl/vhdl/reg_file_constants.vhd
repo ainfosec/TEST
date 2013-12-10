@@ -15,7 +15,7 @@ use ieee.numeric_std.all;
 package reg_file_constants is
 
   -- number of register file registers, including memory (317 = 1 KB mem)
-  constant NUM_REGS          : integer          := 73;
+  constant NUM_REGS          : integer          := 317;
 
     -- width of a single register, in bits
   constant DATA_WIDTH        : integer          := 32;
@@ -36,39 +36,43 @@ package reg_file_constants is
   -- swap-in registers
   constant USRSP_REG         : integer := 13;
   constant USRLR_REG         : integer := 14;
+
+  -- system wide program counter
   constant SYSPC_REG         : integer := 15;
-  constant FIQ8_REG          : integer := 16;
-  constant FIQ9_REG          : integer := 17;
-  constant FIQ10_REG         : integer := 18;
-  constant FIQ11_REG         : integer := 19;
-  constant FIQ12_REG         : integer := 20;
-  constant FIQSP_REG         : integer := 21;
-  constant FIQLR_REG         : integer := 22;
-  constant IRQSP_REG         : integer := 23;
-  constant IRQLR_REG         : integer := 24;
-  constant SVCSP_REG         : integer := 25;
-  constant SVCLR_REG         : integer := 26;
-  constant MONSP_REG         : integer := 27;
-  constant MONLR_REG         : integer := 28;
-  constant ABOSP_REG         : integer := 29;
-  constant ABOLR_REG         : integer := 30;
-  constant UNDSP_REG         : integer := 31;
-  constant UNDLR_REG         : integer := 32;
-
-  -- register where NZCV flags are stored
-  constant CPSR_REG          : integer := 33;
-
-  -- saved program state registers
-  constant USRSS_REG         : integer := 34;
-  constant FIQSS_REG         : integer := 35;
-  constant IRQSS_REG         : integer := 36;
-  constant SVCSS_REG         : integer := 37;
-  constant MONSS_REG         : integer := 38;
-  constant UNDSS_REG         : integer := 39;
-  constant ABOSS_REG         : integer := 40;
 
   -- register where instructions from external peripheral are stored
-  constant INSTR_REG         : integer := 41;
+  constant INSTR_REG         : integer := 16;
+
+  -- rest of the swap-in registers
+  constant FIQ8_REG          : integer := 17;
+  constant FIQ9_REG          : integer := 18;
+  constant FIQ10_REG         : integer := 19;
+  constant FIQ11_REG         : integer := 20;
+  constant FIQ12_REG         : integer := 21;
+  constant FIQSP_REG         : integer := 22;
+  constant FIQLR_REG         : integer := 23;
+  constant IRQSP_REG         : integer := 24;
+  constant IRQLR_REG         : integer := 25;
+  constant SVCSP_REG         : integer := 26;
+  constant SVCLR_REG         : integer := 27;
+  constant MONSP_REG         : integer := 28;
+  constant MONLR_REG         : integer := 29;
+  constant ABOSP_REG         : integer := 30;
+  constant ABOLR_REG         : integer := 31;
+  constant UNDSP_REG         : integer := 32;
+  constant UNDLR_REG         : integer := 33;
+
+  -- register where NZCV flags are stored
+  constant CPSR_REG          : integer := 34;
+
+  -- saved program state registers
+  constant USRSS_REG         : integer := 35;
+  constant FIQSS_REG         : integer := 36;
+  constant IRQSS_REG         : integer := 37;
+  constant SVCSS_REG         : integer := 38;
+  constant MONSS_REG         : integer := 39;
+  constant UNDSS_REG         : integer := 40;
+  constant ABOSS_REG         : integer := 41;
 
   -- highest data register
   constant REG_BOUND         : integer := 41;

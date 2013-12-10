@@ -164,19 +164,19 @@ architecture IMP of reg_file
 is
 
   -- decoded stack pointer
-  signal sp            : integer range NUM_REGS-1 downto MEM_BOUND;
+  signal sp            : integer range MEM_BOUND to NUM_REGS-1;
 
   -- decoded program counter
-  signal pc            : integer range NUM_REGS-1 downto MEM_BOUND;
+  signal pc            : integer range MEM_BOUND to NUM_REGS-1;
 
   -- decoded link register
-  signal lr            : integer range NUM_REGS-1 downto MEM_BOUND;
+  signal lr            : integer range MEM_BOUND to NUM_REGS-1;
 
   -- index safe register pointers for X + (Y << 2)
-  signal sp_plus_off_i : integer range NUM_REGS-1 downto MEM_BOUND;
-  signal pc_plus_off_i : integer range NUM_REGS-1 downto MEM_BOUND;
-  signal lr_plus_off_i : integer range NUM_REGS-1 downto MEM_BOUND;
-  signal rn_plus_off_i : integer range NUM_REGS-1 downto MEM_BOUND;
+  signal sp_plus_off_i : integer range MEM_BOUND to NUM_REGS-1;
+  signal pc_plus_off_i : integer range MEM_BOUND to NUM_REGS-1;
+  signal lr_plus_off_i : integer range MEM_BOUND to NUM_REGS-1;
+  signal rn_plus_off_i : integer range MEM_BOUND to NUM_REGS-1;
 
   -- index safe register pointers for X + Y
   signal rm_plus_rn_i  : integer range MEM_BOUND to NUM_REGS-1;
@@ -184,21 +184,24 @@ is
   -- index safe register pointers for X + (H ? 8  : 0)
   signal flags_hh_u    : unsigned(3 downto 0);
   signal flags_hl_u    : unsigned(3 downto 0);
-  signal rm_hh_reg_i   : integer range REG_BOUND-1 to 0;
-  signal rm_hl_reg_i   : integer range REG_BOUND-1 to 0;
-  signal rn_hh_reg_i   : integer range REG_BOUND-1 to 0;
-  signal rn_hl_reg_i   : integer range REG_BOUND-1 to 0;
-  signal rd_h_reg_i    : integer range REG_BOUND-1 to 0;
+  signal rm_hh_reg_i   : integer range 0 to REG_BOUND;
+  signal rm_hl_reg_i   : integer range 0 to REG_BOUND;
+  signal rn_hh_reg_i   : integer range 0 to REG_BOUND;
+  signal rn_hl_reg_i   : integer range 0 to REG_BOUND;
+  signal rd_h_reg_i    : integer range 0 to REG_BOUND;
 
   -- index safe register pointers for X
-  signal rm_reg_i      : integer range REG_BOUND-1 to 0;
-  signal rn_reg_i      : integer range REG_BOUND-1 to 0;
-  signal rs_reg_i      : integer range REG_BOUND-1 to 0;
-  signal rd_reg_i      : integer range REG_BOUND-1 to 0;
+  signal rm_reg_i      : integer range 0 to REG_BOUND;
+  signal rn_reg_i      : integer range 0 to REG_BOUND;
+  signal rs_reg_i      : integer range 0 to REG_BOUND;
+  signal rd_reg_i      : integer range 0 to REG_BOUND;
 
   -- decoded I/O addresses
   signal r_addr_i      : integer range SOFT_ADDRESS_WIDTH-1 downto 0;
   signal w_addr_i      : integer range SOFT_ADDRESS_WIDTH-1 downto 0;
+
+  -- capture incoming data as it comes in
+  signal soft_data_in_sto : std_logic_vector(DATA_WIDTH-1 downto 0);
 
   -- I/O is ready
   signal soft_r_en     : std_logic;
@@ -240,25 +243,47 @@ begin
     );
 
   -- set our relative pointers so they stay inside memory bounds
+  -- note: integer ranges don't really provide any guarantees except
+  --       minimum bit width
   flags_hh_u(3) <= '1' when flags_h(1) = '1' else '0';
   flags_hh_u(2 downto 0) <= (others => '0');
   flags_hl_u(3) <= '1' when flags_h(0) = '1' else '0';
   flags_hl_u(2 downto 0) <= (others => '0');
-  sp_plus_off_i <= sp + to_integer(unsigned(Imm_8) & "00");
-  pc_plus_off_i <= pc + to_integer(unsigned(Imm_8) & "00");
-  lr_plus_off_i <= lr + to_integer(unsigned(Imm_8) & "00");
-  rn_plus_off_i <= to_integer(unsigned(Rn))
-                 + to_integer(unsigned(Imm_5) & "00");
-  rm_plus_rn_i  <= to_integer(unsigned(Rm)) + to_integer(unsigned(Rn));
-  rm_hh_reg_i   <= to_integer(unsigned(Rm)) + to_integer(flags_hh_u);
-  rm_hl_reg_i   <= to_integer(unsigned(Rm)) + to_integer(flags_hl_u);
-  rn_hh_reg_i   <= to_integer(unsigned(Rn)) + to_integer(flags_hh_u);
-  rn_hl_reg_i   <= to_integer(unsigned(Rn)) + to_integer(flags_hl_u);
-  rd_h_reg_i    <= to_integer(unsigned(Rd)) + to_integer(flags_hh_u);
   rm_reg_i      <= to_integer(unsigned(Rm));
   rn_reg_i      <= to_integer(unsigned(Rn));
   rs_reg_i      <= to_integer(unsigned(Rs));
   rd_reg_i      <= to_integer(unsigned(Rd));
+  rn_plus_off_i <= rn_reg_i + to_integer(unsigned(Imm_5) & "00");
+  rm_plus_rn_i  <= rm_reg_i + rn_reg_i;
+  rm_hh_reg_i   <= rm_reg_i + to_integer(flags_hh_u);
+  rm_hl_reg_i   <= rm_reg_i + to_integer(flags_hl_u);
+  rn_hh_reg_i   <= rn_reg_i + to_integer(flags_hh_u);
+  rn_hl_reg_i   <= rn_reg_i + to_integer(flags_hl_u);
+  rd_h_reg_i    <= rd_reg_i + to_integer(flags_hh_u);
+  GRAB_INDICES : process ( sp , pc , lr , Imm_8 )
+  is
+    variable Imm_8_uns  : integer;
+  begin
+    Imm_8_uns := to_integer(unsigned(Imm_8) & "00");
+    if sp + Imm_8_uns < NUM_REGS
+    then
+      sp_plus_off_i <= sp + Imm_8_uns;
+    else
+      sp_plus_off_i <= NUM_REGS-1;
+    end if;
+    if pc + Imm_8_uns < NUM_REGS
+    then
+      pc_plus_off_i <= pc + Imm_8_uns;
+    else
+      pc_plus_off_i <= NUM_REGS-1;
+    end if;
+    if lr + Imm_8_uns < NUM_REGS
+    then
+      lr_plus_off_i <= lr + Imm_8_uns;
+    else
+      lr_plus_off_i <= NUM_REGS-1;
+    end if;
+  end process GRAB_INDICES;
 
   -- keep all the addresses up-to-date
   --mem_rd_addr(MEMIO_SPPLUSOFF)  <= sp_plus_off_i; -- except the 1st since ...
@@ -292,10 +317,10 @@ begin
   mem_wr_addr(MEMIO_RDREG)      <= rd_reg_i;
   mem_wr_addr(MEMIO_SPREG)      <= sp;
   mem_wr_addr(MEMIO_PCREG)      <= pc;
-  mem_wr_addr(MEMIO_LRREG)      <= lr;
+--  mem_wr_addr(MEMIO_LRREG)      <= lr;
 
   -- decode external peripheral I/O addresses
-  DECODE_I_O_ADDRESS : process ( soft_addr_r, soft_addr_w )
+  DECODE_I_O_ADDRESS : process ( soft_addr_r, soft_addr_w, state )
   is
     variable found_r : std_logic;
     variable found_w : std_logic;
@@ -304,19 +329,43 @@ begin
     found_w := '0';
     for i in SOFT_ADDRESS_WIDTH-1 downto 0
     loop
+
+      -- decode read ID
       if soft_addr_r(SOFT_ADDRESS_WIDTH-1 - i) = '1' and found_r = '0'
       then
         r_addr_i <= i;
         found_r := '1';
       end if;
+
+      -- decode write ID
       if soft_addr_w(SOFT_ADDRESS_WIDTH-1 - i) = '1' and found_w = '0'
       then
         w_addr_i <= i;
         found_w := '1';
       end if;
+
+      -- update
+      if state /= DO_CLEAR_FLAGS
+      then
+
+        -- note if there are any reads or reads to perform,
+        soft_r_en <= found_r;
+        soft_w_en <= found_w;
+
+        -- grab a snapshot of incoming data
+        soft_data_in_sto <= soft_data_in;
+
+      -- reset
+      else
+        soft_r_en <= '0';
+        soft_r_en <= '0';
+        soft_data_in_sto <= "00000000000000000000000000000000";
+
+      end if;
+        
+
     end loop;
-    soft_r_en <= found_r;
-    soft_w_en <= found_w;
+
   end process DECODE_I_O_ADDRESS;
 
   -- event handler for memory I/O
@@ -422,6 +471,7 @@ begin
          state = DO_SEND_INST
       or state = DO_SOFT_READ
     then
+
       -- send a new instruction in to the decoder, or
       if state = DO_SEND_INST
       then
@@ -440,8 +490,8 @@ begin
         mem_rd_en(0)   <= '0';
       end if;
 
-      -- set enable bits
-      mem_rd_en(14 downto 0) <= "000000000000000";
+      -- set unused enable bits
+      mem_rd_en(15 downto 1) <= "000000000000000";
 
     -- grab all possible ALU inputs
     elsif state = DO_ALU_INPUT
@@ -463,7 +513,7 @@ begin
   end process DO_READS;
 
   -- modify registers and memory using the ALU and the external peripheral
-  DO_WRITES: process ( state, soft_w_en )
+  DO_WRITES: process ( state )
   is
   begin
 
@@ -485,6 +535,7 @@ begin
       -- we need to map out the 1st address to allow SOFT_WRITE_EVENT
       --  to overwrite it; all others are mapped out already
       mem_wr_addr(MEMIO_SPPLUSOFF)  <= sp_plus_off_i;
+      mem_wr_addr(MEMIO_LRREG)      <= lr;
 
       -- set enable bits
       mem_wr_en(MEMIO_SPPLUSOFF)  <= wr_en(WR_EN_SP_PLUS_OFF);
@@ -505,11 +556,12 @@ begin
       mem_wr_en(MEMIO_LRREG)      <= wr_en(WR_EN_LR);
 
     -- write data from external peripheral to a register
-    elsif state = DO_SOFT_WRITE
+    elsif state = DO_SOFT_WRITE and soft_w_en = '1'
     then
-      mem_wr_addr(0) <= w_addr_i;
-      mem_data_in(0) <= soft_data_in;
-      mem_wr_en      <= soft_w_en & "000000000000000";
+      mem_wr_addr(15) <= w_addr_i;
+      mem_data_in(15) <= soft_data_in_sto;
+      mem_wr_en(14 downto 0) <= "000000000000000";
+      mem_wr_en(15)          <= soft_w_en;
 
     -- keep write enable bits clear when we aren't writing
     else

@@ -230,285 +230,285 @@ begin
   slv_read_ack      <= Bus2IP_RdCE(0) or Bus2IP_RdCE(1) or Bus2IP_RdCE(2) or Bus2IP_RdCE(3) or Bus2IP_RdCE(4) or Bus2IP_RdCE(5) or Bus2IP_RdCE(6) or Bus2IP_RdCE(7) or Bus2IP_RdCE(8) or Bus2IP_RdCE(9) or Bus2IP_RdCE(10) or Bus2IP_RdCE(11) or Bus2IP_RdCE(12) or Bus2IP_RdCE(13) or Bus2IP_RdCE(14) or Bus2IP_RdCE(15) or Bus2IP_RdCE(16) or Bus2IP_RdCE(17) or Bus2IP_RdCE(18) or Bus2IP_RdCE(19) or Bus2IP_RdCE(20) or Bus2IP_RdCE(21) or Bus2IP_RdCE(22) or Bus2IP_RdCE(23) or Bus2IP_RdCE(24) or Bus2IP_RdCE(25) or Bus2IP_RdCE(26) or Bus2IP_RdCE(27) or Bus2IP_RdCE(28) or Bus2IP_RdCE(29) or Bus2IP_RdCE(30) or Bus2IP_RdCE(31);
 
   -- implement slave model software accessible register(s)
-  SLAVE_REG_WRITE_PROC : process( Bus2IP_Clk ) is
-  begin
-
-    if Bus2IP_Clk'event and Bus2IP_Clk = '1' then
-      if Bus2IP_Resetn = '0' then
-        slv_reg0 <= (others => '0');
-        slv_reg1 <= (others => '0');
-        slv_reg2 <= (others => '0');
-        slv_reg3 <= (others => '0');
-        slv_reg4 <= (others => '0');
-        slv_reg5 <= (others => '0');
-        slv_reg6 <= (others => '0');
-        slv_reg7 <= (others => '0');
-        slv_reg8 <= (others => '0');
-        slv_reg9 <= (others => '0');
-        slv_reg10 <= (others => '0');
-        slv_reg11 <= (others => '0');
-        slv_reg12 <= (others => '0');
-        slv_reg13 <= (others => '0');
-        slv_reg14 <= (others => '0');
-        slv_reg15 <= (others => '0');
-        slv_reg16 <= (others => '0');
-        slv_reg17 <= (others => '0');
-        slv_reg18 <= (others => '0');
-        slv_reg19 <= (others => '0');
-        slv_reg20 <= (others => '0');
-        slv_reg21 <= (others => '0');
-        slv_reg22 <= (others => '0');
-        slv_reg23 <= (others => '0');
-        slv_reg24 <= (others => '0');
-        slv_reg25 <= (others => '0');
-        slv_reg26 <= (others => '0');
-        slv_reg27 <= (others => '0');
-        slv_reg28 <= (others => '0');
-        slv_reg29 <= (others => '0');
-        slv_reg30 <= (others => '0');
-        slv_reg31 <= (others => '0');
-      else
-        case slv_reg_write_sel is
-          when "10000000000000000000000000000000" =>
-            for byte_index in 0 to (C_SLV_DWIDTH/8)-1 loop
-              if ( Bus2IP_BE(byte_index) = '1' ) then
-                slv_reg0(byte_index*8+7 downto byte_index*8) <= Bus2IP_Data(byte_index*8+7 downto byte_index*8);
-              end if;
-            end loop;
-          when "01000000000000000000000000000000" =>
-            for byte_index in 0 to (C_SLV_DWIDTH/8)-1 loop
-              if ( Bus2IP_BE(byte_index) = '1' ) then
-                slv_reg1(byte_index*8+7 downto byte_index*8) <= Bus2IP_Data(byte_index*8+7 downto byte_index*8);
-              end if;
-            end loop;
-          when "00100000000000000000000000000000" =>
-            for byte_index in 0 to (C_SLV_DWIDTH/8)-1 loop
-              if ( Bus2IP_BE(byte_index) = '1' ) then
-                slv_reg2(byte_index*8+7 downto byte_index*8) <= Bus2IP_Data(byte_index*8+7 downto byte_index*8);
-              end if;
-            end loop;
-          when "00010000000000000000000000000000" =>
-            for byte_index in 0 to (C_SLV_DWIDTH/8)-1 loop
-              if ( Bus2IP_BE(byte_index) = '1' ) then
-                slv_reg3(byte_index*8+7 downto byte_index*8) <= Bus2IP_Data(byte_index*8+7 downto byte_index*8);
-              end if;
-            end loop;
-          when "00001000000000000000000000000000" =>
-            for byte_index in 0 to (C_SLV_DWIDTH/8)-1 loop
-              if ( Bus2IP_BE(byte_index) = '1' ) then
-                slv_reg4(byte_index*8+7 downto byte_index*8) <= Bus2IP_Data(byte_index*8+7 downto byte_index*8);
-              end if;
-            end loop;
-          when "00000100000000000000000000000000" =>
-            for byte_index in 0 to (C_SLV_DWIDTH/8)-1 loop
-              if ( Bus2IP_BE(byte_index) = '1' ) then
-                slv_reg5(byte_index*8+7 downto byte_index*8) <= Bus2IP_Data(byte_index*8+7 downto byte_index*8);
-              end if;
-            end loop;
-          when "00000010000000000000000000000000" =>
-            for byte_index in 0 to (C_SLV_DWIDTH/8)-1 loop
-              if ( Bus2IP_BE(byte_index) = '1' ) then
-                slv_reg6(byte_index*8+7 downto byte_index*8) <= Bus2IP_Data(byte_index*8+7 downto byte_index*8);
-              end if;
-            end loop;
-          when "00000001000000000000000000000000" =>
-            for byte_index in 0 to (C_SLV_DWIDTH/8)-1 loop
-              if ( Bus2IP_BE(byte_index) = '1' ) then
-                slv_reg7(byte_index*8+7 downto byte_index*8) <= Bus2IP_Data(byte_index*8+7 downto byte_index*8);
-              end if;
-            end loop;
-          when "00000000100000000000000000000000" =>
-            for byte_index in 0 to (C_SLV_DWIDTH/8)-1 loop
-              if ( Bus2IP_BE(byte_index) = '1' ) then
-                slv_reg8(byte_index*8+7 downto byte_index*8) <= Bus2IP_Data(byte_index*8+7 downto byte_index*8);
-              end if;
-            end loop;
-          when "00000000010000000000000000000000" =>
-            for byte_index in 0 to (C_SLV_DWIDTH/8)-1 loop
-              if ( Bus2IP_BE(byte_index) = '1' ) then
-                slv_reg9(byte_index*8+7 downto byte_index*8) <= Bus2IP_Data(byte_index*8+7 downto byte_index*8);
-              end if;
-            end loop;
-          when "00000000001000000000000000000000" =>
-            for byte_index in 0 to (C_SLV_DWIDTH/8)-1 loop
-              if ( Bus2IP_BE(byte_index) = '1' ) then
-                slv_reg10(byte_index*8+7 downto byte_index*8) <= Bus2IP_Data(byte_index*8+7 downto byte_index*8);
-              end if;
-            end loop;
-          when "00000000000100000000000000000000" =>
-            for byte_index in 0 to (C_SLV_DWIDTH/8)-1 loop
-              if ( Bus2IP_BE(byte_index) = '1' ) then
-                slv_reg11(byte_index*8+7 downto byte_index*8) <= Bus2IP_Data(byte_index*8+7 downto byte_index*8);
-              end if;
-            end loop;
-          when "00000000000010000000000000000000" =>
-            for byte_index in 0 to (C_SLV_DWIDTH/8)-1 loop
-              if ( Bus2IP_BE(byte_index) = '1' ) then
-                slv_reg12(byte_index*8+7 downto byte_index*8) <= Bus2IP_Data(byte_index*8+7 downto byte_index*8);
-              end if;
-            end loop;
-          when "00000000000001000000000000000000" =>
-            for byte_index in 0 to (C_SLV_DWIDTH/8)-1 loop
-              if ( Bus2IP_BE(byte_index) = '1' ) then
-                slv_reg13(byte_index*8+7 downto byte_index*8) <= Bus2IP_Data(byte_index*8+7 downto byte_index*8);
-              end if;
-            end loop;
-          when "00000000000000100000000000000000" =>
-            for byte_index in 0 to (C_SLV_DWIDTH/8)-1 loop
-              if ( Bus2IP_BE(byte_index) = '1' ) then
-                slv_reg14(byte_index*8+7 downto byte_index*8) <= Bus2IP_Data(byte_index*8+7 downto byte_index*8);
-              end if;
-            end loop;
-          when "00000000000000010000000000000000" =>
-            for byte_index in 0 to (C_SLV_DWIDTH/8)-1 loop
-              if ( Bus2IP_BE(byte_index) = '1' ) then
-                slv_reg15(byte_index*8+7 downto byte_index*8) <= Bus2IP_Data(byte_index*8+7 downto byte_index*8);
-              end if;
-            end loop;
-          when "00000000000000001000000000000000" =>
-            for byte_index in 0 to (C_SLV_DWIDTH/8)-1 loop
-              if ( Bus2IP_BE(byte_index) = '1' ) then
-                slv_reg16(byte_index*8+7 downto byte_index*8) <= Bus2IP_Data(byte_index*8+7 downto byte_index*8);
-              end if;
-            end loop;
-          when "00000000000000000100000000000000" =>
-            for byte_index in 0 to (C_SLV_DWIDTH/8)-1 loop
-              if ( Bus2IP_BE(byte_index) = '1' ) then
-                slv_reg17(byte_index*8+7 downto byte_index*8) <= Bus2IP_Data(byte_index*8+7 downto byte_index*8);
-              end if;
-            end loop;
-          when "00000000000000000010000000000000" =>
-            for byte_index in 0 to (C_SLV_DWIDTH/8)-1 loop
-              if ( Bus2IP_BE(byte_index) = '1' ) then
-                slv_reg18(byte_index*8+7 downto byte_index*8) <= Bus2IP_Data(byte_index*8+7 downto byte_index*8);
-              end if;
-            end loop;
-          when "00000000000000000001000000000000" =>
-            for byte_index in 0 to (C_SLV_DWIDTH/8)-1 loop
-              if ( Bus2IP_BE(byte_index) = '1' ) then
-                slv_reg19(byte_index*8+7 downto byte_index*8) <= Bus2IP_Data(byte_index*8+7 downto byte_index*8);
-              end if;
-            end loop;
-          when "00000000000000000000100000000000" =>
-            for byte_index in 0 to (C_SLV_DWIDTH/8)-1 loop
-              if ( Bus2IP_BE(byte_index) = '1' ) then
-                slv_reg20(byte_index*8+7 downto byte_index*8) <= Bus2IP_Data(byte_index*8+7 downto byte_index*8);
-              end if;
-            end loop;
-          when "00000000000000000000010000000000" =>
-            for byte_index in 0 to (C_SLV_DWIDTH/8)-1 loop
-              if ( Bus2IP_BE(byte_index) = '1' ) then
-                slv_reg21(byte_index*8+7 downto byte_index*8) <= Bus2IP_Data(byte_index*8+7 downto byte_index*8);
-              end if;
-            end loop;
-          when "00000000000000000000001000000000" =>
-            for byte_index in 0 to (C_SLV_DWIDTH/8)-1 loop
-              if ( Bus2IP_BE(byte_index) = '1' ) then
-                slv_reg22(byte_index*8+7 downto byte_index*8) <= Bus2IP_Data(byte_index*8+7 downto byte_index*8);
-              end if;
-            end loop;
-          when "00000000000000000000000100000000" =>
-            for byte_index in 0 to (C_SLV_DWIDTH/8)-1 loop
-              if ( Bus2IP_BE(byte_index) = '1' ) then
-                slv_reg23(byte_index*8+7 downto byte_index*8) <= Bus2IP_Data(byte_index*8+7 downto byte_index*8);
-              end if;
-            end loop;
-          when "00000000000000000000000010000000" =>
-            for byte_index in 0 to (C_SLV_DWIDTH/8)-1 loop
-              if ( Bus2IP_BE(byte_index) = '1' ) then
-                slv_reg24(byte_index*8+7 downto byte_index*8) <= Bus2IP_Data(byte_index*8+7 downto byte_index*8);
-              end if;
-            end loop;
-          when "00000000000000000000000001000000" =>
-            for byte_index in 0 to (C_SLV_DWIDTH/8)-1 loop
-              if ( Bus2IP_BE(byte_index) = '1' ) then
-                slv_reg25(byte_index*8+7 downto byte_index*8) <= Bus2IP_Data(byte_index*8+7 downto byte_index*8);
-              end if;
-            end loop;
-          when "00000000000000000000000000100000" =>
-            for byte_index in 0 to (C_SLV_DWIDTH/8)-1 loop
-              if ( Bus2IP_BE(byte_index) = '1' ) then
-                slv_reg26(byte_index*8+7 downto byte_index*8) <= Bus2IP_Data(byte_index*8+7 downto byte_index*8);
-              end if;
-            end loop;
-          when "00000000000000000000000000010000" =>
-            for byte_index in 0 to (C_SLV_DWIDTH/8)-1 loop
-              if ( Bus2IP_BE(byte_index) = '1' ) then
-                slv_reg27(byte_index*8+7 downto byte_index*8) <= Bus2IP_Data(byte_index*8+7 downto byte_index*8);
-              end if;
-            end loop;
-          when "00000000000000000000000000001000" =>
-            for byte_index in 0 to (C_SLV_DWIDTH/8)-1 loop
-              if ( Bus2IP_BE(byte_index) = '1' ) then
-                slv_reg28(byte_index*8+7 downto byte_index*8) <= Bus2IP_Data(byte_index*8+7 downto byte_index*8);
-              end if;
-            end loop;
-          when "00000000000000000000000000000100" =>
-            for byte_index in 0 to (C_SLV_DWIDTH/8)-1 loop
-              if ( Bus2IP_BE(byte_index) = '1' ) then
-                slv_reg29(byte_index*8+7 downto byte_index*8) <= Bus2IP_Data(byte_index*8+7 downto byte_index*8);
-              end if;
-            end loop;
-          when "00000000000000000000000000000010" =>
-            for byte_index in 0 to (C_SLV_DWIDTH/8)-1 loop
-              if ( Bus2IP_BE(byte_index) = '1' ) then
-                slv_reg30(byte_index*8+7 downto byte_index*8) <= Bus2IP_Data(byte_index*8+7 downto byte_index*8);
-              end if;
-            end loop;
-          when "00000000000000000000000000000001" =>
-            for byte_index in 0 to (C_SLV_DWIDTH/8)-1 loop
-              if ( Bus2IP_BE(byte_index) = '1' ) then
-                slv_reg31(byte_index*8+7 downto byte_index*8) <= Bus2IP_Data(byte_index*8+7 downto byte_index*8);
-              end if;
-            end loop;
-          when others => null;
-        end case;
-      end if;
-    end if;
-
-  end process SLAVE_REG_WRITE_PROC;
-
-  -- implement slave model software accessible register(s) read mux
-  SLAVE_REG_READ_PROC : process( slv_reg_read_sel, slv_reg0, slv_reg1, slv_reg2, slv_reg3, slv_reg4, slv_reg5, slv_reg6, slv_reg7, slv_reg8, slv_reg9, slv_reg10, slv_reg11, slv_reg12, slv_reg13, slv_reg14, slv_reg15, slv_reg16, slv_reg17, slv_reg18, slv_reg19, slv_reg20, slv_reg21, slv_reg22, slv_reg23, slv_reg24, slv_reg25, slv_reg26, slv_reg27, slv_reg28, slv_reg29, slv_reg30, slv_reg31 ) is
-  begin
-
-    case slv_reg_read_sel is
-      when "10000000000000000000000000000000" => slv_ip2bus_data <= slv_reg0;
-      when "01000000000000000000000000000000" => slv_ip2bus_data <= slv_reg1;
-      when "00100000000000000000000000000000" => slv_ip2bus_data <= slv_reg2;
-      when "00010000000000000000000000000000" => slv_ip2bus_data <= slv_reg3;
-      when "00001000000000000000000000000000" => slv_ip2bus_data <= slv_reg4;
-      when "00000100000000000000000000000000" => slv_ip2bus_data <= slv_reg5;
-      when "00000010000000000000000000000000" => slv_ip2bus_data <= slv_reg6;
-      when "00000001000000000000000000000000" => slv_ip2bus_data <= slv_reg7;
-      when "00000000100000000000000000000000" => slv_ip2bus_data <= slv_reg8;
-      when "00000000010000000000000000000000" => slv_ip2bus_data <= slv_reg9;
-      when "00000000001000000000000000000000" => slv_ip2bus_data <= slv_reg10;
-      when "00000000000100000000000000000000" => slv_ip2bus_data <= slv_reg11;
-      when "00000000000010000000000000000000" => slv_ip2bus_data <= slv_reg12;
-      when "00000000000001000000000000000000" => slv_ip2bus_data <= slv_reg13;
-      when "00000000000000100000000000000000" => slv_ip2bus_data <= slv_reg14;
-      when "00000000000000010000000000000000" => slv_ip2bus_data <= slv_reg15;
-      when "00000000000000001000000000000000" => slv_ip2bus_data <= slv_reg16;
-      when "00000000000000000100000000000000" => slv_ip2bus_data <= slv_reg17;
-      when "00000000000000000010000000000000" => slv_ip2bus_data <= slv_reg18;
-      when "00000000000000000001000000000000" => slv_ip2bus_data <= slv_reg19;
-      when "00000000000000000000100000000000" => slv_ip2bus_data <= slv_reg20;
-      when "00000000000000000000010000000000" => slv_ip2bus_data <= slv_reg21;
-      when "00000000000000000000001000000000" => slv_ip2bus_data <= slv_reg22;
-      when "00000000000000000000000100000000" => slv_ip2bus_data <= slv_reg23;
-      when "00000000000000000000000010000000" => slv_ip2bus_data <= slv_reg24;
-      when "00000000000000000000000001000000" => slv_ip2bus_data <= slv_reg25;
-      when "00000000000000000000000000100000" => slv_ip2bus_data <= slv_reg26;
-      when "00000000000000000000000000010000" => slv_ip2bus_data <= slv_reg27;
-      when "00000000000000000000000000001000" => slv_ip2bus_data <= slv_reg28;
-      when "00000000000000000000000000000100" => slv_ip2bus_data <= slv_reg29;
-      when "00000000000000000000000000000010" => slv_ip2bus_data <= slv_reg30;
-      when "00000000000000000000000000000001" => slv_ip2bus_data <= slv_reg31;
-      when others => slv_ip2bus_data <= (others => '0');
-    end case;
-
-  end process SLAVE_REG_READ_PROC;
+--  SLAVE_REG_WRITE_PROC : process( Bus2IP_Clk ) is
+--  begin
+--
+--    if Bus2IP_Clk'event and Bus2IP_Clk = '1' then
+--      if Bus2IP_Resetn = '0' then
+--        slv_reg0 <= (others => '0');
+--        slv_reg1 <= (others => '0');
+--        slv_reg2 <= (others => '0');
+--        slv_reg3 <= (others => '0');
+--        slv_reg4 <= (others => '0');
+--        slv_reg5 <= (others => '0');
+--        slv_reg6 <= (others => '0');
+--        slv_reg7 <= (others => '0');
+--        slv_reg8 <= (others => '0');
+--        slv_reg9 <= (others => '0');
+--        slv_reg10 <= (others => '0');
+--        slv_reg11 <= (others => '0');
+--        slv_reg12 <= (others => '0');
+--        slv_reg13 <= (others => '0');
+--        slv_reg14 <= (others => '0');
+--        slv_reg15 <= (others => '0');
+--        slv_reg16 <= (others => '0');
+--        slv_reg17 <= (others => '0');
+--        slv_reg18 <= (others => '0');
+--        slv_reg19 <= (others => '0');
+--        slv_reg20 <= (others => '0');
+--        slv_reg21 <= (others => '0');
+--        slv_reg22 <= (others => '0');
+--        slv_reg23 <= (others => '0');
+--        slv_reg24 <= (others => '0');
+--        slv_reg25 <= (others => '0');
+--        slv_reg26 <= (others => '0');
+--        slv_reg27 <= (others => '0');
+--        slv_reg28 <= (others => '0');
+--        slv_reg29 <= (others => '0');
+--        slv_reg30 <= (others => '0');
+--        slv_reg31 <= (others => '0');
+--      else
+--        case slv_reg_write_sel is
+--          when "10000000000000000000000000000000" =>
+--            for byte_index in 0 to (C_SLV_DWIDTH/8)-1 loop
+--              if ( Bus2IP_BE(byte_index) = '1' ) then
+--                slv_reg0(byte_index*8+7 downto byte_index*8) <= Bus2IP_Data(byte_index*8+7 downto byte_index*8);
+--              end if;
+--            end loop;
+--          when "01000000000000000000000000000000" =>
+--            for byte_index in 0 to (C_SLV_DWIDTH/8)-1 loop
+--              if ( Bus2IP_BE(byte_index) = '1' ) then
+--                slv_reg1(byte_index*8+7 downto byte_index*8) <= Bus2IP_Data(byte_index*8+7 downto byte_index*8);
+--              end if;
+--            end loop;
+--          when "00100000000000000000000000000000" =>
+--            for byte_index in 0 to (C_SLV_DWIDTH/8)-1 loop
+--              if ( Bus2IP_BE(byte_index) = '1' ) then
+--                slv_reg2(byte_index*8+7 downto byte_index*8) <= Bus2IP_Data(byte_index*8+7 downto byte_index*8);
+--              end if;
+--            end loop;
+--          when "00010000000000000000000000000000" =>
+--            for byte_index in 0 to (C_SLV_DWIDTH/8)-1 loop
+--              if ( Bus2IP_BE(byte_index) = '1' ) then
+--                slv_reg3(byte_index*8+7 downto byte_index*8) <= Bus2IP_Data(byte_index*8+7 downto byte_index*8);
+--              end if;
+--            end loop;
+--          when "00001000000000000000000000000000" =>
+--            for byte_index in 0 to (C_SLV_DWIDTH/8)-1 loop
+--              if ( Bus2IP_BE(byte_index) = '1' ) then
+--                slv_reg4(byte_index*8+7 downto byte_index*8) <= Bus2IP_Data(byte_index*8+7 downto byte_index*8);
+--              end if;
+--            end loop;
+--          when "00000100000000000000000000000000" =>
+--            for byte_index in 0 to (C_SLV_DWIDTH/8)-1 loop
+--              if ( Bus2IP_BE(byte_index) = '1' ) then
+--                slv_reg5(byte_index*8+7 downto byte_index*8) <= Bus2IP_Data(byte_index*8+7 downto byte_index*8);
+--              end if;
+--            end loop;
+--          when "00000010000000000000000000000000" =>
+--            for byte_index in 0 to (C_SLV_DWIDTH/8)-1 loop
+--              if ( Bus2IP_BE(byte_index) = '1' ) then
+--                slv_reg6(byte_index*8+7 downto byte_index*8) <= Bus2IP_Data(byte_index*8+7 downto byte_index*8);
+--              end if;
+--            end loop;
+--          when "00000001000000000000000000000000" =>
+--            for byte_index in 0 to (C_SLV_DWIDTH/8)-1 loop
+--              if ( Bus2IP_BE(byte_index) = '1' ) then
+--                slv_reg7(byte_index*8+7 downto byte_index*8) <= Bus2IP_Data(byte_index*8+7 downto byte_index*8);
+--              end if;
+--            end loop;
+--          when "00000000100000000000000000000000" =>
+--            for byte_index in 0 to (C_SLV_DWIDTH/8)-1 loop
+--              if ( Bus2IP_BE(byte_index) = '1' ) then
+--                slv_reg8(byte_index*8+7 downto byte_index*8) <= Bus2IP_Data(byte_index*8+7 downto byte_index*8);
+--              end if;
+--            end loop;
+--          when "00000000010000000000000000000000" =>
+--            for byte_index in 0 to (C_SLV_DWIDTH/8)-1 loop
+--              if ( Bus2IP_BE(byte_index) = '1' ) then
+--                slv_reg9(byte_index*8+7 downto byte_index*8) <= Bus2IP_Data(byte_index*8+7 downto byte_index*8);
+--              end if;
+--            end loop;
+--          when "00000000001000000000000000000000" =>
+--            for byte_index in 0 to (C_SLV_DWIDTH/8)-1 loop
+--              if ( Bus2IP_BE(byte_index) = '1' ) then
+--                slv_reg10(byte_index*8+7 downto byte_index*8) <= Bus2IP_Data(byte_index*8+7 downto byte_index*8);
+--              end if;
+--            end loop;
+--          when "00000000000100000000000000000000" =>
+--            for byte_index in 0 to (C_SLV_DWIDTH/8)-1 loop
+--              if ( Bus2IP_BE(byte_index) = '1' ) then
+--                slv_reg11(byte_index*8+7 downto byte_index*8) <= Bus2IP_Data(byte_index*8+7 downto byte_index*8);
+--              end if;
+--            end loop;
+--          when "00000000000010000000000000000000" =>
+--            for byte_index in 0 to (C_SLV_DWIDTH/8)-1 loop
+--              if ( Bus2IP_BE(byte_index) = '1' ) then
+--                slv_reg12(byte_index*8+7 downto byte_index*8) <= Bus2IP_Data(byte_index*8+7 downto byte_index*8);
+--              end if;
+--            end loop;
+--          when "00000000000001000000000000000000" =>
+--            for byte_index in 0 to (C_SLV_DWIDTH/8)-1 loop
+--              if ( Bus2IP_BE(byte_index) = '1' ) then
+--                slv_reg13(byte_index*8+7 downto byte_index*8) <= Bus2IP_Data(byte_index*8+7 downto byte_index*8);
+--              end if;
+--            end loop;
+--          when "00000000000000100000000000000000" =>
+--            for byte_index in 0 to (C_SLV_DWIDTH/8)-1 loop
+--              if ( Bus2IP_BE(byte_index) = '1' ) then
+--                slv_reg14(byte_index*8+7 downto byte_index*8) <= Bus2IP_Data(byte_index*8+7 downto byte_index*8);
+--              end if;
+--            end loop;
+--          when "00000000000000010000000000000000" =>
+--            for byte_index in 0 to (C_SLV_DWIDTH/8)-1 loop
+--              if ( Bus2IP_BE(byte_index) = '1' ) then
+--                slv_reg15(byte_index*8+7 downto byte_index*8) <= Bus2IP_Data(byte_index*8+7 downto byte_index*8);
+--              end if;
+--            end loop;
+--          when "00000000000000001000000000000000" =>
+--            for byte_index in 0 to (C_SLV_DWIDTH/8)-1 loop
+--              if ( Bus2IP_BE(byte_index) = '1' ) then
+--                slv_reg16(byte_index*8+7 downto byte_index*8) <= Bus2IP_Data(byte_index*8+7 downto byte_index*8);
+--              end if;
+--            end loop;
+--          when "00000000000000000100000000000000" =>
+--            for byte_index in 0 to (C_SLV_DWIDTH/8)-1 loop
+--              if ( Bus2IP_BE(byte_index) = '1' ) then
+--                slv_reg17(byte_index*8+7 downto byte_index*8) <= Bus2IP_Data(byte_index*8+7 downto byte_index*8);
+--              end if;
+--            end loop;
+--          when "00000000000000000010000000000000" =>
+--            for byte_index in 0 to (C_SLV_DWIDTH/8)-1 loop
+--              if ( Bus2IP_BE(byte_index) = '1' ) then
+--                slv_reg18(byte_index*8+7 downto byte_index*8) <= Bus2IP_Data(byte_index*8+7 downto byte_index*8);
+--              end if;
+--            end loop;
+--          when "00000000000000000001000000000000" =>
+--            for byte_index in 0 to (C_SLV_DWIDTH/8)-1 loop
+--              if ( Bus2IP_BE(byte_index) = '1' ) then
+--                slv_reg19(byte_index*8+7 downto byte_index*8) <= Bus2IP_Data(byte_index*8+7 downto byte_index*8);
+--              end if;
+--            end loop;
+--          when "00000000000000000000100000000000" =>
+--            for byte_index in 0 to (C_SLV_DWIDTH/8)-1 loop
+--              if ( Bus2IP_BE(byte_index) = '1' ) then
+--                slv_reg20(byte_index*8+7 downto byte_index*8) <= Bus2IP_Data(byte_index*8+7 downto byte_index*8);
+--              end if;
+--            end loop;
+--          when "00000000000000000000010000000000" =>
+--            for byte_index in 0 to (C_SLV_DWIDTH/8)-1 loop
+--              if ( Bus2IP_BE(byte_index) = '1' ) then
+--                slv_reg21(byte_index*8+7 downto byte_index*8) <= Bus2IP_Data(byte_index*8+7 downto byte_index*8);
+--              end if;
+--            end loop;
+--          when "00000000000000000000001000000000" =>
+--            for byte_index in 0 to (C_SLV_DWIDTH/8)-1 loop
+--              if ( Bus2IP_BE(byte_index) = '1' ) then
+--                slv_reg22(byte_index*8+7 downto byte_index*8) <= Bus2IP_Data(byte_index*8+7 downto byte_index*8);
+--              end if;
+--            end loop;
+--          when "00000000000000000000000100000000" =>
+--            for byte_index in 0 to (C_SLV_DWIDTH/8)-1 loop
+--              if ( Bus2IP_BE(byte_index) = '1' ) then
+--                slv_reg23(byte_index*8+7 downto byte_index*8) <= Bus2IP_Data(byte_index*8+7 downto byte_index*8);
+--              end if;
+--            end loop;
+--          when "00000000000000000000000010000000" =>
+--            for byte_index in 0 to (C_SLV_DWIDTH/8)-1 loop
+--              if ( Bus2IP_BE(byte_index) = '1' ) then
+--                slv_reg24(byte_index*8+7 downto byte_index*8) <= Bus2IP_Data(byte_index*8+7 downto byte_index*8);
+--              end if;
+--            end loop;
+--          when "00000000000000000000000001000000" =>
+--            for byte_index in 0 to (C_SLV_DWIDTH/8)-1 loop
+--              if ( Bus2IP_BE(byte_index) = '1' ) then
+--                slv_reg25(byte_index*8+7 downto byte_index*8) <= Bus2IP_Data(byte_index*8+7 downto byte_index*8);
+--              end if;
+--            end loop;
+--          when "00000000000000000000000000100000" =>
+--            for byte_index in 0 to (C_SLV_DWIDTH/8)-1 loop
+--              if ( Bus2IP_BE(byte_index) = '1' ) then
+--                slv_reg26(byte_index*8+7 downto byte_index*8) <= Bus2IP_Data(byte_index*8+7 downto byte_index*8);
+--              end if;
+--            end loop;
+--          when "00000000000000000000000000010000" =>
+--            for byte_index in 0 to (C_SLV_DWIDTH/8)-1 loop
+--              if ( Bus2IP_BE(byte_index) = '1' ) then
+--                slv_reg27(byte_index*8+7 downto byte_index*8) <= Bus2IP_Data(byte_index*8+7 downto byte_index*8);
+--              end if;
+--            end loop;
+--          when "00000000000000000000000000001000" =>
+--            for byte_index in 0 to (C_SLV_DWIDTH/8)-1 loop
+--              if ( Bus2IP_BE(byte_index) = '1' ) then
+--                slv_reg28(byte_index*8+7 downto byte_index*8) <= Bus2IP_Data(byte_index*8+7 downto byte_index*8);
+--              end if;
+--            end loop;
+--          when "00000000000000000000000000000100" =>
+--            for byte_index in 0 to (C_SLV_DWIDTH/8)-1 loop
+--              if ( Bus2IP_BE(byte_index) = '1' ) then
+--                slv_reg29(byte_index*8+7 downto byte_index*8) <= Bus2IP_Data(byte_index*8+7 downto byte_index*8);
+--              end if;
+--            end loop;
+--          when "00000000000000000000000000000010" =>
+--            for byte_index in 0 to (C_SLV_DWIDTH/8)-1 loop
+--              if ( Bus2IP_BE(byte_index) = '1' ) then
+--                slv_reg30(byte_index*8+7 downto byte_index*8) <= Bus2IP_Data(byte_index*8+7 downto byte_index*8);
+--              end if;
+--            end loop;
+--          when "00000000000000000000000000000001" =>
+--            for byte_index in 0 to (C_SLV_DWIDTH/8)-1 loop
+--              if ( Bus2IP_BE(byte_index) = '1' ) then
+--                slv_reg31(byte_index*8+7 downto byte_index*8) <= Bus2IP_Data(byte_index*8+7 downto byte_index*8);
+--              end if;
+--            end loop;
+--          when others => null;
+--        end case;
+--      end if;
+--    end if;
+--
+--  end process SLAVE_REG_WRITE_PROC;
+--
+--  -- implement slave model software accessible register(s) read mux
+--  SLAVE_REG_READ_PROC : process( slv_reg_read_sel, slv_reg0, slv_reg1, slv_reg2, slv_reg3, slv_reg4, slv_reg5, slv_reg6, slv_reg7, slv_reg8, slv_reg9, slv_reg10, slv_reg11, slv_reg12, slv_reg13, slv_reg14, slv_reg15, slv_reg16, slv_reg17, slv_reg18, slv_reg19, slv_reg20, slv_reg21, slv_reg22, slv_reg23, slv_reg24, slv_reg25, slv_reg26, slv_reg27, slv_reg28, slv_reg29, slv_reg30, slv_reg31 ) is
+--  begin
+--
+--    case slv_reg_read_sel is
+--      when "10000000000000000000000000000000" => slv_ip2bus_data <= slv_reg0;
+--      when "01000000000000000000000000000000" => slv_ip2bus_data <= slv_reg1;
+--      when "00100000000000000000000000000000" => slv_ip2bus_data <= slv_reg2;
+--      when "00010000000000000000000000000000" => slv_ip2bus_data <= slv_reg3;
+--      when "00001000000000000000000000000000" => slv_ip2bus_data <= slv_reg4;
+--      when "00000100000000000000000000000000" => slv_ip2bus_data <= slv_reg5;
+--      when "00000010000000000000000000000000" => slv_ip2bus_data <= slv_reg6;
+--      when "00000001000000000000000000000000" => slv_ip2bus_data <= slv_reg7;
+--      when "00000000100000000000000000000000" => slv_ip2bus_data <= slv_reg8;
+--      when "00000000010000000000000000000000" => slv_ip2bus_data <= slv_reg9;
+--      when "00000000001000000000000000000000" => slv_ip2bus_data <= slv_reg10;
+--      when "00000000000100000000000000000000" => slv_ip2bus_data <= slv_reg11;
+--      when "00000000000010000000000000000000" => slv_ip2bus_data <= slv_reg12;
+--      when "00000000000001000000000000000000" => slv_ip2bus_data <= slv_reg13;
+--      when "00000000000000100000000000000000" => slv_ip2bus_data <= slv_reg14;
+--      when "00000000000000010000000000000000" => slv_ip2bus_data <= slv_reg15;
+--      when "00000000000000001000000000000000" => slv_ip2bus_data <= slv_reg16;
+--      when "00000000000000000100000000000000" => slv_ip2bus_data <= slv_reg17;
+--      when "00000000000000000010000000000000" => slv_ip2bus_data <= slv_reg18;
+--      when "00000000000000000001000000000000" => slv_ip2bus_data <= slv_reg19;
+--      when "00000000000000000000100000000000" => slv_ip2bus_data <= slv_reg20;
+--      when "00000000000000000000010000000000" => slv_ip2bus_data <= slv_reg21;
+--      when "00000000000000000000001000000000" => slv_ip2bus_data <= slv_reg22;
+--      when "00000000000000000000000100000000" => slv_ip2bus_data <= slv_reg23;
+--      when "00000000000000000000000010000000" => slv_ip2bus_data <= slv_reg24;
+--      when "00000000000000000000000001000000" => slv_ip2bus_data <= slv_reg25;
+--      when "00000000000000000000000000100000" => slv_ip2bus_data <= slv_reg26;
+--      when "00000000000000000000000000010000" => slv_ip2bus_data <= slv_reg27;
+--      when "00000000000000000000000000001000" => slv_ip2bus_data <= slv_reg28;
+--      when "00000000000000000000000000000100" => slv_ip2bus_data <= slv_reg29;
+--      when "00000000000000000000000000000010" => slv_ip2bus_data <= slv_reg30;
+--      when "00000000000000000000000000000001" => slv_ip2bus_data <= slv_reg31;
+--      when others => slv_ip2bus_data <= (others => '0');
+--    end case;
+--
+--  end process SLAVE_REG_READ_PROC;
 
   ------------------------------------------
   -- Example code to drive IP to Bus signals

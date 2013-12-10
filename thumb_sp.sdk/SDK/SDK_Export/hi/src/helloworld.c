@@ -17,14 +17,14 @@ int main()
 
     PL_DEV_mReset(XPAR_SIMPLE_PROCESSOR_WRAPPER_0_BASEADDR);
     PL_DEV_mWriteReg (
-            XPAR_SIMPLE_PROCESSOR_WRAPPER_0_BASEADDR, 10, 0xDEADBEEF
+            XPAR_SIMPLE_PROCESSOR_WRAPPER_0_BASEADDR, 4, 0xFEDCBA98
             );
     snprintf (
             outmesg, len,
             "this hello world was brought to you by the number "
             "0x%08x\r\n",
             (unsigned) PL_DEV_mReadReg (
-                    XPAR_SIMPLE_PROCESSOR_WRAPPER_0_BASEADDR, 10
+                    XPAR_SIMPLE_PROCESSOR_WRAPPER_0_BASEADDR, 4
                     )
             );
     init_platform();

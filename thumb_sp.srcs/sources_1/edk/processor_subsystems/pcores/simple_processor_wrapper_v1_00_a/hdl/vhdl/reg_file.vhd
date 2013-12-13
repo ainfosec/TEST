@@ -3,7 +3,7 @@
 -- Description:       provides a user-specified number of data storage registers
 --                    which have I/O with both software and hardware
 -- Date Created:      Wed, Nov 13, 2013 20:59:21
--- Last Modified:     Fri, Dec 06, 2013 00:23:46
+-- Last Modified:     Thu, Dec 12, 2013 09:57:11
 -- VHDL Standard:     VHDL'93
 -- Author:            Sean McClain <mcclains@ainfosec.com>
 -- Copyright:         (c) 2013 Assured Information Security, All Rights Reserved
@@ -131,6 +131,12 @@ is
     -- acknowledge any soft writes are done for state machine
     soft_write_ack       : out   std_logic;
 
+    -- acknowledge read address has been decoded for state machine
+    decode_r_ack         : out   std_logic;
+
+    -- acknowledge write address has been decoded for state machine
+    decode_w_ack         : out   std_logic;
+
     -- the contents of the accessible registers
     sp_plus_off          : out   std_logic_vector(DATA_WIDTH-1 downto 0);
     pc_plus_off          : out   std_logic_vector(DATA_WIDTH-1 downto 0);
@@ -200,9 +206,6 @@ is
   signal r_addr_i      : integer range SOFT_ADDRESS_WIDTH-1 downto 0;
   signal w_addr_i      : integer range SOFT_ADDRESS_WIDTH-1 downto 0;
 
-  -- capture incoming data as it comes in
-  signal soft_data_in_sto : std_logic_vector(DATA_WIDTH-1 downto 0);
-
   -- I/O is ready
   signal soft_r_en     : std_logic;
   signal soft_w_en     : std_logic;
@@ -223,9 +226,116 @@ is
   signal mem_data_in   : mem_channel;
   signal mem_data_out  : mem_channel;
 
+  -- data_in synchronized with soft_addr_w
+  signal soft_data_s   : std_logic_vector(DATA_WIDTH-1 downto 0);
+
 begin
 
-  -- registers plus data memory, and pointers (stack, program, link)
+  ---
+  -- Set memory indices so they stay inside memory bounds
+  --
+  -- Note: integer ranges don't really provide any guarantees except
+  --       minimum bit width, so handle this manually
+  ---
+    flags_hh_u(3) <= '1' when flags_h(1) = '1' else '0';
+    flags_hh_u(2 downto 0) <= (others => '0');
+    flags_hl_u(3) <= '1' when flags_h(0) = '1' else '0';
+    flags_hl_u(2 downto 0) <= (others => '0');
+    rm_reg_i      <= to_integer(unsigned(Rm));
+    rn_reg_i      <= to_integer(unsigned(Rn));
+    rs_reg_i      <= to_integer(unsigned(Rs));
+    rd_reg_i      <= to_integer(unsigned(Rd));
+    rn_plus_off_i <= rn_reg_i + to_integer(unsigned(Imm_5) & "00");
+    rm_plus_rn_i  <= rm_reg_i + rn_reg_i;
+    rm_hh_reg_i   <= rm_reg_i + to_integer(flags_hh_u);
+    rm_hl_reg_i   <= rm_reg_i + to_integer(flags_hl_u);
+    rn_hh_reg_i   <= rn_reg_i + to_integer(flags_hh_u);
+    rn_hl_reg_i   <= rn_reg_i + to_integer(flags_hl_u);
+    rd_h_reg_i    <= rd_reg_i + to_integer(flags_hh_u);
+    GRAB_SP_INDEX : process ( sp, Imm_8 )
+    is
+      variable i : integer;
+    begin
+      i := sp + to_integer(unsigned(Imm_8) & "00");
+      if i < NUM_REGS
+      then
+        sp_plus_off_i <= i;
+      else
+        sp_plus_off_i <= NUM_REGS-1;
+      end if;
+    end process GRAB_SP_INDEX;
+    GRAB_PC_INDEX : process ( pc, Imm_8 )
+    is
+      variable i : integer;
+    begin
+      i := pc + to_integer(unsigned(Imm_8) & "00");
+      if i < NUM_REGS
+      then
+        pc_plus_off_i <= i;
+      else
+        pc_plus_off_i <= NUM_REGS-1;
+      end if;
+    end process GRAB_PC_INDEX;
+    GRAB_LR_INDEX : process ( lr, Imm_8 )
+    is
+      variable i : integer;
+    begin
+      i := lr + to_integer(unsigned(Imm_8) & "00");
+      if i < NUM_REGS
+      then
+        lr_plus_off_i <= i;
+      else
+        lr_plus_off_i <= NUM_REGS-1;
+      end if;
+    end process GRAB_LR_INDEX;
+
+  ---
+  -- Set up the memory I/O channels. 16 words are read and written
+  --  at a time.
+  ---
+    -- This address gets overwritten by external and instruction reads
+    --mem_rd_addr(MEMIO_SPPLUSOFF)  <= sp_plus_off_i;
+
+    -- All others never change
+    mem_rd_addr(MEMIO_PCPLUSOFF)  <= pc_plus_off_i;
+    mem_rd_addr(MEMIO_LRPLUSOFF)  <= lr_plus_off_i;
+    mem_rd_addr(MEMIO_RNPLUSOFF)  <= rn_plus_off_i;
+    mem_rd_addr(MEMIO_RMPLUSRN)   <= rm_plus_rn_i;
+    mem_rd_addr(MEMIO_RMHHREG)    <= rm_hh_reg_i;
+    mem_rd_addr(MEMIO_RMHLREG)    <= rm_hl_reg_i;
+    mem_rd_addr(MEMIO_RNHHREG)    <= rn_hh_reg_i;
+    mem_rd_addr(MEMIO_RNHLREG)    <= rn_hl_reg_i;
+    mem_rd_addr(MEMIO_RMREG)      <= rm_reg_i;
+    mem_rd_addr(MEMIO_RNREG)      <= rn_reg_i;
+    mem_rd_addr(MEMIO_RSREG)      <= rs_reg_i;
+    mem_rd_addr(MEMIO_RDREG)      <= rd_reg_i;
+    mem_rd_addr(MEMIO_SPREG)      <= sp;
+    mem_rd_addr(MEMIO_PCREG)      <= pc;
+--  mem_rd_addr(MEMIO_LRREG)      <= lr; never say never ;)
+
+    -- This address gets overwritten by external and ALU writes
+    --  mem_wr_addr(MEMIO_SPPLUSOFF)  <= sp_plus_off_i;
+
+    -- All others never change
+    mem_wr_addr(MEMIO_PCPLUSOFF)  <= pc_plus_off_i;
+    mem_wr_addr(MEMIO_LRPLUSOFF)  <= lr_plus_off_i;
+    mem_wr_addr(MEMIO_RNPLUSOFF)  <= rn_plus_off_i;
+    mem_wr_addr(MEMIO_RMPLUSRN)   <= rm_plus_rn_i;
+    mem_wr_addr(MEMIO_RDHREG)     <= rd_h_reg_i;
+    mem_wr_addr(MEMIO_RMHLREG)    <= rm_hl_reg_i;
+    mem_wr_addr(MEMIO_RNHHREG)    <= rn_hh_reg_i;
+    mem_wr_addr(MEMIO_RNHLREG)    <= rn_hl_reg_i;
+    mem_wr_addr(MEMIO_RMREG)      <= rm_reg_i;
+    mem_wr_addr(MEMIO_RNREG)      <= rn_reg_i;
+    mem_wr_addr(MEMIO_RSREG)      <= rs_reg_i;
+    mem_wr_addr(MEMIO_RDREG)      <= rd_reg_i;
+    mem_wr_addr(MEMIO_SPREG)      <= sp;
+    mem_wr_addr(MEMIO_PCREG)      <= pc;
+--  mem_wr_addr(MEMIO_LRREG)      <= lr;
+
+  ---
+  -- Registers plus data memory, and pointers (stack, program, link)
+  ---
   ALL_MEM : entity simple_processor_wrapper_v1_00_a.memory
     port map
     (
@@ -242,277 +352,199 @@ begin
       lr       => lr
     );
 
-  -- set our relative pointers so they stay inside memory bounds
-  -- note: integer ranges don't really provide any guarantees except
-  --       minimum bit width
-  flags_hh_u(3) <= '1' when flags_h(1) = '1' else '0';
-  flags_hh_u(2 downto 0) <= (others => '0');
-  flags_hl_u(3) <= '1' when flags_h(0) = '1' else '0';
-  flags_hl_u(2 downto 0) <= (others => '0');
-  rm_reg_i      <= to_integer(unsigned(Rm));
-  rn_reg_i      <= to_integer(unsigned(Rn));
-  rs_reg_i      <= to_integer(unsigned(Rs));
-  rd_reg_i      <= to_integer(unsigned(Rd));
-  rn_plus_off_i <= rn_reg_i + to_integer(unsigned(Imm_5) & "00");
-  rm_plus_rn_i  <= rm_reg_i + rn_reg_i;
-  rm_hh_reg_i   <= rm_reg_i + to_integer(flags_hh_u);
-  rm_hl_reg_i   <= rm_reg_i + to_integer(flags_hl_u);
-  rn_hh_reg_i   <= rn_reg_i + to_integer(flags_hh_u);
-  rn_hl_reg_i   <= rn_reg_i + to_integer(flags_hl_u);
-  rd_h_reg_i    <= rd_reg_i + to_integer(flags_hh_u);
-  GRAB_INDICES : process ( sp , pc , lr , Imm_8 )
-  is
-    variable Imm_8_uns  : integer;
-  begin
-    Imm_8_uns := to_integer(unsigned(Imm_8) & "00");
-    if sp + Imm_8_uns < NUM_REGS
-    then
-      sp_plus_off_i <= sp + Imm_8_uns;
-    else
-      sp_plus_off_i <= NUM_REGS-1;
-    end if;
-    if pc + Imm_8_uns < NUM_REGS
-    then
-      pc_plus_off_i <= pc + Imm_8_uns;
-    else
-      pc_plus_off_i <= NUM_REGS-1;
-    end if;
-    if lr + Imm_8_uns < NUM_REGS
-    then
-      lr_plus_off_i <= lr + Imm_8_uns;
-    else
-      lr_plus_off_i <= NUM_REGS-1;
-    end if;
-  end process GRAB_INDICES;
-
-  -- keep all the addresses up-to-date
-  --mem_rd_addr(MEMIO_SPPLUSOFF)  <= sp_plus_off_i; -- except the 1st since ...
-  mem_rd_addr(MEMIO_PCPLUSOFF)  <= pc_plus_off_i;   -- ... we overwrite it
-  mem_rd_addr(MEMIO_LRPLUSOFF)  <= lr_plus_off_i;
-  mem_rd_addr(MEMIO_RNPLUSOFF)  <= rn_plus_off_i;
-  mem_rd_addr(MEMIO_RMPLUSRN)   <= rm_plus_rn_i;
-  mem_rd_addr(MEMIO_RMHHREG)    <= rm_hh_reg_i;
-  mem_rd_addr(MEMIO_RMHLREG)    <= rm_hl_reg_i;
-  mem_rd_addr(MEMIO_RNHHREG)    <= rn_hh_reg_i;
-  mem_rd_addr(MEMIO_RNHLREG)    <= rn_hl_reg_i;
-  mem_rd_addr(MEMIO_RMREG)      <= rm_reg_i;
-  mem_rd_addr(MEMIO_RNREG)      <= rn_reg_i;
-  mem_rd_addr(MEMIO_RSREG)      <= rs_reg_i;
-  mem_rd_addr(MEMIO_RDREG)      <= rd_reg_i;
-  mem_rd_addr(MEMIO_SPREG)      <= sp;
-  mem_rd_addr(MEMIO_PCREG)      <= pc;
-  mem_rd_addr(MEMIO_LRREG)      <= lr;
---  mem_wr_addr(MEMIO_SPPLUSOFF)  <= sp_plus_off_i; -- same for writes, to...
-  mem_wr_addr(MEMIO_PCPLUSOFF)  <= pc_plus_off_i;   -- ...allow external writes
-  mem_wr_addr(MEMIO_LRPLUSOFF)  <= lr_plus_off_i;
-  mem_wr_addr(MEMIO_RNPLUSOFF)  <= rn_plus_off_i;
-  mem_wr_addr(MEMIO_RMPLUSRN)   <= rm_plus_rn_i;
-  mem_wr_addr(MEMIO_RDHREG)     <= rd_h_reg_i;
-  mem_wr_addr(MEMIO_RMHLREG)    <= rm_hl_reg_i;
-  mem_wr_addr(MEMIO_RNHHREG)    <= rn_hh_reg_i;
-  mem_wr_addr(MEMIO_RNHLREG)    <= rn_hl_reg_i;
-  mem_wr_addr(MEMIO_RMREG)      <= rm_reg_i;
-  mem_wr_addr(MEMIO_RNREG)      <= rn_reg_i;
-  mem_wr_addr(MEMIO_RSREG)      <= rs_reg_i;
-  mem_wr_addr(MEMIO_RDREG)      <= rd_reg_i;
-  mem_wr_addr(MEMIO_SPREG)      <= sp;
-  mem_wr_addr(MEMIO_PCREG)      <= pc;
---  mem_wr_addr(MEMIO_LRREG)      <= lr;
-
-  -- decode external peripheral I/O addresses
-  DECODE_I_O_ADDRESS : process ( soft_addr_r, soft_addr_w, state )
+  ---
+  -- Decode external peripheral I/O addresses
+  ---
+  DECODE_I_O_ADDRESS : process ( state )
   is
     variable found_r : std_logic;
     variable found_w : std_logic;
   begin
+
+    -- init search
     found_r := '0';
     found_w := '0';
-    for i in SOFT_ADDRESS_WIDTH-1 downto 0
-    loop
 
-      -- decode read ID
-      if soft_addr_r(SOFT_ADDRESS_WIDTH-1 - i) = '1' and found_r = '0'
+    -- search for leftmost read/write ID
+    if   state = DO_DECODE_SOFT_READ or state = DO_DECODE_SOFT_WRITE
+      or state = DO_CLEAR_FLAGS
+    then
+
+      -- the leftmost bit controls the index to write to,
+      --   number of positions from leftmost starting with 0 is the index or ID
+      for i in SOFT_ADDRESS_WIDTH-1 downto 0
+      loop
+
+        -- decode read ID
+        if soft_addr_r(SOFT_ADDRESS_WIDTH-1 - i) = '1' and found_r = '0'
+        then
+          r_addr_i <= i;
+          found_r := '1';
+        end if;
+
+        -- decode write ID
+        if soft_addr_w(SOFT_ADDRESS_WIDTH-1 - i) = '1' and found_w = '0'
+        then
+          w_addr_i <= i;
+          found_w := '1';
+        end if;
+
+      end loop;
+
+      -- note if there are any reads or writes to perform,
+      --   synchronize write-in data with address
+      if    state = DO_DECODE_SOFT_READ
       then
-        r_addr_i <= i;
-        found_r := '1';
-      end if;
-
-      -- decode write ID
-      if soft_addr_w(SOFT_ADDRESS_WIDTH-1 - i) = '1' and found_w = '0'
-      then
-        w_addr_i <= i;
-        found_w := '1';
-      end if;
-
-      -- update
-      if state /= DO_CLEAR_FLAGS
-      then
-
-        -- note if there are any reads or reads to perform,
         soft_r_en <= found_r;
+        decode_r_ack <= '1';
+        decode_w_ack <= '0';
+      elsif state = DO_DECODE_SOFT_WRITE
+      then
         soft_w_en <= found_w;
-
-        -- grab a snapshot of incoming data
-        soft_data_in_sto <= soft_data_in;
-
-      -- reset
-      else
-        soft_r_en <= '0';
-        soft_r_en <= '0';
-        soft_data_in_sto <= "00000000000000000000000000000000";
-
+        soft_data_s <= soft_data_in;
+        decode_r_ack <= '0';
+        decode_w_ack <= '1';
+      elsif state = DO_CLEAR_FLAGS
+      then
+        decode_r_ack <= '0';
+        decode_w_ack <= '0';
       end if;
-        
 
-    end loop;
+    end if;
 
   end process DECODE_I_O_ADDRESS;
 
-  -- event handler for memory I/O
+  ---
+  -- Event handler for memory I/O
+  ---
   HANDLE_MEMORY_I_O_EVENT : process ( mem_rd_ack, mem_wr_ack, state )
   is
     variable check_send       : std_logic;
   begin
 
-    -- a read was performed
-    if mem_rd_ack = '1'
-    then
-      case state is
+    -- take load/store action during the appropriate state
+    case state is
 
-        -- send a new instruction in to the decoder
-        when DO_SEND_INST =>
-          instruction   <= mem_data_out(0)(15 downto 0);
-          send_inst_ack <= '1';
+      -- send a new instruction in to the decoder
+      when DO_SEND_INST =>
+--        instruction   <= mem_data_out(0)(15 downto 0);
+        instruction   <= mem_data_out(15)(15 downto 0);
+        send_inst_ack <= mem_rd_ack;
 
-        -- read from a register to external peripheral
-        when DO_SOFT_READ =>
-          soft_data_out <= mem_data_out(0);
-          soft_read_ack <= '1';
+      -- read from a register to external peripheral
+      when DO_SOFT_READ =>
+        soft_data_out <= mem_data_out(0);
+        soft_read_ack <= mem_rd_ack;
 
-        -- grab all possible ALU inputs
-        when DO_ALU_INPUT =>
+      -- grab all possible ALU inputs
+      when DO_ALU_INPUT =>
 
-          -- send retrieved memory values out
-          sp_plus_off <= mem_data_out(MEMIO_SPPLUSOFF);
-          pc_plus_off <= mem_data_out(MEMIO_PCPLUSOFF);
-          lr_plus_off <= mem_data_out(MEMIO_LRPLUSOFF);
-          rn_plus_off <= mem_data_out(MEMIO_RNPLUSOFF);
-          rm_plus_rn  <= mem_data_out(MEMIO_RMPLUSRN);
-          rm_hh_reg   <= mem_data_out(MEMIO_RMHHREG);
-          rm_hl_reg   <= mem_data_out(MEMIO_RMHLREG);
-          rn_hh_reg   <= mem_data_out(MEMIO_RNHHREG);
-          rn_hl_reg   <= mem_data_out(MEMIO_RNHLREG);
-          rm_reg      <= mem_data_out(MEMIO_RMREG);
-          rn_reg      <= mem_data_out(MEMIO_RNREG);
-          rs_reg      <= mem_data_out(MEMIO_RSREG);
-          rd_reg      <= mem_data_out(MEMIO_RDREG);
-          sp_reg      <= mem_data_out(MEMIO_SPREG);
-          pc_reg      <= mem_data_out(MEMIO_PCREG);
-          lr_reg      <= mem_data_out(MEMIO_LRREG);
+        -- send retrieved memory values out
+        sp_plus_off <= mem_data_out(MEMIO_SPPLUSOFF);
+        pc_plus_off <= mem_data_out(MEMIO_PCPLUSOFF);
+        lr_plus_off <= mem_data_out(MEMIO_LRPLUSOFF);
+        rn_plus_off <= mem_data_out(MEMIO_RNPLUSOFF);
+        rm_plus_rn  <= mem_data_out(MEMIO_RMPLUSRN);
+        rm_hh_reg   <= mem_data_out(MEMIO_RMHHREG);
+        rm_hl_reg   <= mem_data_out(MEMIO_RMHLREG);
+        rn_hh_reg   <= mem_data_out(MEMIO_RNHHREG);
+        rn_hl_reg   <= mem_data_out(MEMIO_RNHLREG);
+        rm_reg      <= mem_data_out(MEMIO_RMREG);
+        rn_reg      <= mem_data_out(MEMIO_RNREG);
+        rs_reg      <= mem_data_out(MEMIO_RSREG);
+        rd_reg      <= mem_data_out(MEMIO_RDREG);
+        sp_reg      <= mem_data_out(MEMIO_SPREG);
+        pc_reg      <= mem_data_out(MEMIO_PCREG);
+        lr_reg      <= mem_data_out(MEMIO_LRREG);
 
-          -- send pointers
-          sp_val      <= sp;
-          pc_val      <= pc;
-          lr_val      <= lr;
+        -- send pointers
+        sp_val      <= sp;
+        pc_val      <= pc;
+        lr_val      <= lr;
 
-          -- let the state machine know load work is done
-          load_ack <= '1';
+        -- let the state machine know load work is done
+        load_ack <= mem_rd_ack;
 
-        -- no reads in any other states
-        when others => null;
+      -- initialize component
+      when DO_REG_FILE_RESET =>
+        reg_file_reset_ack <= mem_wr_ack;
 
-      end case;
-    end if;
+      -- write ALU output to registers (possibly no writes, so always ack)
+      when DO_LOAD_STORE =>
+        store_ack <= '1';
 
-    -- a write was performed
-    if mem_wr_ack = '1'
-    then
-      case state is
+      -- write data from external peripheral to a register
+      when DO_SOFT_WRITE =>
+        soft_write_ack <= mem_wr_ack;
 
-        -- initialize component
-        when DO_REG_FILE_RESET =>
-          reg_file_reset_ack <= '1';
+      -- reset state machine outputs
+      when DO_CLEAR_FLAGS =>
+        send_inst_ack      <= '0';
+        load_ack           <= '0';
+        soft_read_ack      <= '0';
+        reg_file_reset_ack <= '0';
+        store_ack          <= '0';
+        soft_write_ack     <= '0';
 
-        -- grab all possible ALU inputs
-        when DO_LOAD_STORE =>
-          store_ack <= '1';
+      -- no reads or writes in any other states
+      when others =>
+        null;
 
-        -- write data from external peripheral to a register
-        when DO_SOFT_WRITE =>
-          soft_write_ack <= '1';
-
-        -- no writes in any other states
-        when others => null;
-
-      end case;
-    end if;
-
-    -- reset state machine outputs
-    CLEAR_FLAGS_EVENT : if state = DO_CLEAR_FLAGS
-    then
-      send_inst_ack      <= '0';
-      load_ack           <= '0';
-      soft_read_ack      <= '0';
-      reg_file_reset_ack <= '0';
-      store_ack          <= '0';
-      soft_write_ack     <= '0';
-    end if CLEAR_FLAGS_EVENT;
+    end case;
 
   end process HANDLE_MEMORY_I_O_EVENT;
 
-  -- read registers and memory to the ALU and external peripheral
-  DO_READS : process ( state, soft_r_en )
+  ---
+  -- Read registers and memory to the ALU and external peripheral
+  ---
+  DO_READS : process ( state )
   is
   begin
 
-    -- send a new instruction in to the decoder, or
-    --  read from a register to external peripheral
-    STATE_SELECT : if
-         state = DO_SEND_INST
-      or state = DO_SOFT_READ
+    -- send a new instruction in to the decoder
+    if state = DO_SEND_INST
     then
+--      mem_rd_addr(0) <= INSTR_REG;
+--      mem_rd_en(0)   <= '1';
+--      mem_rd_en(15 downto 1) <= "000000000000000";
+      mem_rd_addr(15) <= INSTR_REG;
+      mem_rd_en(15)   <= '1';
+      mem_rd_en(14 downto 0) <= "000000000000000";
+    end if;
 
-      -- send a new instruction in to the decoder, or
-      if state = DO_SEND_INST
-      then
-        mem_rd_addr(0) <= INSTR_REG;
-        mem_rd_en(0)   <= '1';
-
-      --  read from a register to external peripheral
-      elsif state = DO_SOFT_READ
-      then
-        mem_rd_addr(0) <= r_addr_i;
-        mem_rd_en(0)   <= soft_r_en;
-
-      -- none of the accounted for states
-      else
-        mem_rd_addr(0) <= 0;
-        mem_rd_en(0)   <= '0';
-      end if;
-
-      -- set unused enable bits
+    --  read from a register to external peripheral
+    if state = DO_SOFT_READ
+    then
+      mem_rd_addr(0) <= r_addr_i;
+      mem_rd_en(0)   <= soft_r_en;
       mem_rd_en(15 downto 1) <= "000000000000000";
+    end if;
 
     -- grab all possible ALU inputs
-    elsif state = DO_ALU_INPUT
+    if state = DO_ALU_INPUT
     then
 
       -- we need to map out the 1st address to allow SOFT_READ_EVENT
       --  to overwrite it; all others are mapped out already
       mem_rd_addr(MEMIO_SPPLUSOFF) <= sp_plus_off_i;
+      mem_rd_addr(MEMIO_LRREG)     <= lr;
 
       -- set enable bits
       mem_rd_en <= "1111111111111111";
+    end if;
 
     -- keep read enables clear when we aren't reading
-    else
+    if    state /= DO_ALU_INPUT and state /= DO_SOFT_READ
+      and state /= DO_SEND_INST
+    then
       mem_rd_en <= "0000000000000000";
-
-    end if STATE_SELECT;
+    end if;
 
   end process DO_READS;
 
-  -- modify registers and memory using the ALU and the external peripheral
+  ---
+  -- Modify registers and memory using the ALU and the external peripheral
+  ---
   DO_WRITES: process ( state )
   is
   begin
@@ -556,10 +588,10 @@ begin
       mem_wr_en(MEMIO_LRREG)      <= wr_en(WR_EN_LR);
 
     -- write data from external peripheral to a register
-    elsif state = DO_SOFT_WRITE and soft_w_en = '1'
+    elsif state = DO_SOFT_WRITE
     then
       mem_wr_addr(15) <= w_addr_i;
-      mem_data_in(15) <= soft_data_in_sto;
+      mem_data_in(15) <= soft_data_s;
       mem_wr_en(14 downto 0) <= "000000000000000";
       mem_wr_en(15)          <= soft_w_en;
 

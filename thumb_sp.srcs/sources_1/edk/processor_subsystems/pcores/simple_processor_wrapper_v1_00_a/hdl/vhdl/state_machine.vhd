@@ -37,8 +37,10 @@ is
     load_ack           : in    std_logic;
     math_ack           : in    std_logic;
     store_ack          : in    std_logic;
-    soft_write_ack     : in    std_logic;
     soft_read_ack      : in    std_logic;
+    soft_write_ack     : in    std_logic;
+    decode_r_ack       : in    std_logic;
+    decode_w_ack       : in    std_logic;
 
     -- An address in decoded integer form, used to trigger reads or writes
     soft_addr_r        : in    std_logic_vector (
@@ -75,7 +77,9 @@ is
 
 begin
 
-  -- detect whether a software read or write was requested
+  ---
+  -- Detect whether a software read or write was requested
+  ---
   software_read_event(0)  <= '0';
   software_write_event(0) <= '0';
   DETECT_READ : for i in SOFT_ADDRESS_WIDTH downto 1 generate
@@ -89,87 +93,88 @@ begin
   axi_read_ack  <= software_read_event(SOFT_ADDRESS_WIDTH);
   axi_write_ack <= software_write_event(SOFT_ADDRESS_WIDTH);
 
-  -- select the current state
+  ---
+  -- Select the current state
+  ---
   DO_UPDATE : process (
       Clk, state,
       software_read_event, software_write_event,
       reg_file_reset_ack, alu_reset_ack,
       send_inst_ack, decode_ack, load_ack, math_ack, store_ack,
-      soft_read_ack, soft_write_ack
+      soft_read_ack, soft_write_ack, decode_r_ack, decode_w_ack
       )
   is
   begin
+
     -- an AXI read was requested
     if    software_read_event(SOFT_ADDRESS_WIDTH) = '1'
+      and state /= DO_DECODE_SOFT_READ
       and state /= DO_SOFT_READ
       and state /= DO_CLEAR_FLAGS
     then
-          state <= DO_SOFT_READ;
+      state <= DO_DECODE_SOFT_READ;
 
-    -- new high edge
-    elsif Clk'event and Clk = '1'
+    -- reset requested
+    elsif (Clk'event and Clk = '1')
+      and Reset = '0'
     then
+      state <= DO_REG_FILE_RESET;
 
-      -- reset requested
-      if Reset = '0'
-      then
-        state <= DO_REG_FILE_RESET;
+    -- an AXI write was requested
+    elsif (Clk'event and Clk = '1')
+      and software_write_event(SOFT_ADDRESS_WIDTH) = '1'
+    then
+      state <= DO_DECODE_SOFT_WRITE;
 
-      -- an AXI write was requested
-      elsif software_write_event(SOFT_ADDRESS_WIDTH) = '1'
-      then
-          state <= DO_SOFT_WRITE;
-
-      -- no reset or AXI I/O, start processing
-      else
-        state <= DO_SEND_INST;
-
-      end if;
+    -- if no other work, start processing on a clock edge
+    elsif (Clk'event and Clk = '1')
+       or (Clk'event and Clk = '0')
+    then
+      state <= DO_SEND_INST;
 
     -- already processing, advance to the next state
     elsif state = DO_REG_FILE_RESET
-      and reg_file_reset_ack'event
-      and reg_file_reset_ack = '1'
+      and (reg_file_reset_ack'event and reg_file_reset_ack = '1')
     then
       state <= DO_ALU_RESET;
     elsif state = DO_ALU_RESET
-      and alu_reset_ack'event
-      and alu_reset_ack = '1'
+      and (alu_reset_ack'event and alu_reset_ack = '1')
     then
       state <= DO_CLEAR_FLAGS;
     elsif state = DO_SEND_INST
-      and send_inst_ack'event
-      and send_inst_ack = '1'
+      and (send_inst_ack'event and send_inst_ack = '1')
     then
       state <= DO_DECODE;
     elsif state = DO_DECODE
-      and decode_ack'event
-      and decode_ack = '1'
+      and (decode_ack'event and decode_ack = '1')
     then
       state <= DO_ALU_INPUT;
     elsif state = DO_ALU_INPUT
-      and load_ack'event
-      and load_ack = '1'
+      and (load_ack'event and load_ack = '1')
     then
       state <= DO_MATH;
     elsif state = DO_MATH
-      and math_ack'event
-      and math_ack = '1'
+      and (math_ack'event and math_ack = '1')
     then
       state <= DO_LOAD_STORE;
     elsif state = DO_LOAD_STORE
-      and store_ack'event
-      and store_ack = '1'
+      and (store_ack'event and store_ack = '1')
     then
       state <= DO_CLEAR_FLAGS;
+    elsif state = DO_DECODE_SOFT_READ
+      and (decode_r_ack'event and decode_r_ack = '1')
+    then
+      state <= DO_SOFT_READ;
+    elsif state = DO_DECODE_SOFT_WRITE
+      and (decode_w_ack'event and decode_w_ack = '1')
+    then
+      state <= DO_SOFT_WRITE;
     elsif state = DO_SOFT_READ
-      and soft_read_ack'event
-      and soft_read_ack = '1'
+      and (soft_read_ack'event and soft_read_ack = '1')
     then
       state <= DO_CLEAR_FLAGS;
     elsif state = DO_SOFT_WRITE
-      and soft_read_ack'event
-      and soft_read_ack = '1'
+      and (soft_write_ack'event and soft_write_ack = '1')
     then
       state <= DO_CLEAR_FLAGS;
     end if;

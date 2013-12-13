@@ -2,7 +2,7 @@
 -- Version:           1.00.a
 -- Description:       contains readable and writeable word-addressed memory
 -- Date Created:      Thu, Dec 05, 2013 22:03:13
--- Last Modified:     Fri, Dec 06, 2013 01:53:24
+-- Last Modified:     Thu, Dec 12, 2013 09:57:19
 -- VHDL Standard:     VHDL'93
 -- Author:            Sean McClain <mcclains@ainfosec.com>
 -- Copyright:         (c) 2013 Assured Information Security, All Rights Reserved
@@ -238,10 +238,9 @@ begin
 
   -- send data out from memory
 
--- TODO: to limit compile times, only 4 pre-defined registers
---       for rm, rn, rs, and rd, respectively, are readable,
---       and the contents of rd are copied to the external
---       peripheral.
+-- TODO: to limit compile times, only 16 pre-defined registers
+--       are readable, and the contents of rd are copied to the
+--       external peripheral.
 
 --  DO_READ : for i in 15 downto 0
 --  generate
@@ -249,6 +248,18 @@ begin
 --      mem(rd_addr(i)) when '1',
 --      zero when others;
 --  end generate DO_READ;
+
+  -- MEMIO_SPPLUSOFF overridden by Rd (to allow external peripheral to read)
+  with rd_en(0) select data_out(0) <=
+    mem(4) when '1',
+    zero when others;
+
+  -- MEMIO_LRREG overridden by the current instruction
+  with rd_en(15) select data_out(15) <=
+    mem(INSTR_REG) when '1',
+    zero when others;
+
+  -- all the rest are implemented
   with rd_en(MEMIO_RMREG) select data_out(MEMIO_RMREG) <=
     mem(1) when '1',
     zero when others;
@@ -261,8 +272,39 @@ begin
   with rd_en(MEMIO_RDREG) select data_out(MEMIO_RDREG) <=
     mem(4) when '1',
     zero when others;
-  with rd_en(0) select data_out(0) <=
-    mem(4) when '1',
+  with rd_en(MEMIO_PCPLUSOFF) select data_out(MEMIO_PCPLUSOFF) <=
+    mem(MEM_BOUND) when '1',
+    zero when others;
+  with rd_en(MEMIO_LRPLUSOFF) select data_out(MEMIO_LRPLUSOFF) <=
+    mem(MEM_BOUND) when '1',
+    zero when others;
+  with rd_en(MEMIO_RNPLUSOFF) select data_out(MEMIO_RNPLUSOFF) <=
+    mem(2) when '1',
+    zero when others;
+  with rd_en(MEMIO_RMPLUSRN) select data_out(MEMIO_RMPLUSRN) <=
+    mem(3) when '1',
+    zero when others;
+--  MEMIO_RMHHREG is MEMIO_RDHREG; one is for reads and one is for writes
+--  with rd_en(MEMIO_RMHHREG) select data_out(MEMIO_RMHHREG) <=
+--    mem(9) when '1',
+--    zero when others;
+  with rd_en(MEMIO_RDHREG) select data_out(MEMIO_RDHREG) <=
+    mem(12) when '1',
+    zero when others;
+  with rd_en(MEMIO_RMHLREG) select data_out(MEMIO_RMHLREG) <=
+    mem(1) when '1',
+    zero when others;
+  with rd_en(MEMIO_RNHHREG) select data_out(MEMIO_RNHHREG) <=
+    mem(10) when '1',
+    zero when others;
+  with rd_en(MEMIO_RNHLREG) select data_out(MEMIO_RNHLREG) <=
+    mem(2) when '1',
+    zero when others;
+  with rd_en(MEMIO_SPREG) select data_out(MEMIO_SPREG) <=
+    mem(NUM_REGS - 16) when '1',
+    zero when others;
+  with rd_en(MEMIO_PCREG) select data_out(MEMIO_PCREG) <=
+    mem(MEM_BOUND) when '1',
     zero when others;
 
   -- acknowledge reads

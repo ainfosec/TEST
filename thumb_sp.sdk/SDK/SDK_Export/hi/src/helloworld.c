@@ -17,7 +17,7 @@ int main()
 
     PL_DEV_mReset(XPAR_SIMPLE_PROCESSOR_WRAPPER_0_BASEADDR);
     PL_DEV_mWriteReg (
-            XPAR_SIMPLE_PROCESSOR_WRAPPER_0_BASEADDR, 4, 0xFEDCBA98
+            XPAR_SIMPLE_PROCESSOR_WRAPPER_0_BASEADDR, 4, 0x00001854
             );
     snprintf (
             outmesg, len,

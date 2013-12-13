@@ -73,6 +73,8 @@ is
   signal store_ack           : std_logic;
   signal soft_read_ack       : std_logic;
   signal soft_write_ack      : std_logic;
+  signal decode_r_ack        : std_logic;
+  signal decode_w_ack        : std_logic;
 
   -- raw binary for the current instruction
   signal raw_instruction     : std_logic_vector(15 downto 0);
@@ -156,8 +158,10 @@ begin
       load_ack               => load_ack,
       math_ack               => math_ack,
       store_ack              => store_ack,
-      soft_write_ack         => soft_write_ack,
       soft_read_ack          => soft_read_ack,
+      soft_write_ack         => soft_write_ack,
+      decode_r_ack           => decode_r_ack,
+      decode_w_ack           => decode_w_ack,
       soft_addr_r            => soft_addr_r,
       soft_addr_w            => soft_addr_w,
       axi_read_ack           => ack_read,
@@ -204,6 +208,8 @@ begin
       store_ack              => store_ack,
       soft_read_ack          => soft_read_ack,
       soft_write_ack         => soft_write_ack,
+      decode_r_ack           => decode_r_ack,
+      decode_w_ack           => decode_w_ack,
       sp_plus_off            => sp_plus_off,
       pc_plus_off            => pc_plus_off,
       lr_plus_off            => lr_plus_off,

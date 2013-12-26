@@ -2,7 +2,7 @@
 -- Version:           1.00.a
 -- Description:       takes a binary function and turns it into fetched data
 -- Date Created:      Wed, Nov 13, 2013 20:59:21
--- Last Modified:     Fri, Dec 06, 2013 00:22:44
+-- Last Modified:     Tue, Dec 24, 2013 16:19:37
 -- VHDL Standard:     VHDL'93
 -- Author:            Sean McClain <mcclains@ainfosec.com>
 -- Copyright:         (c) 2013 Assured Information Security, All Rights Reserved
@@ -64,9 +64,6 @@ is
     -- an 11-bit immediate value, pulled directly from the instruction binary
     Imm_11     : out   std_logic_vector(10 downto 0);
 
-    -- convenience values for comparisons
-    zero       : out   std_logic_vector(DATA_WIDTH-1 downto 0);
-
     -- a flag used by the PUSH and POP instructions
     flag_lr_pc : out   std_logic;
 
@@ -100,9 +97,6 @@ begin
   Imm_11     <= data(10 downto 0);
   flag_lr_pc <= data(8);
   flags_h    <= data(7 downto 6);
-
-  -- send out zeroes
-  zero       <= (others => '0');
 
   -- decode data and opcodes
   DATA_DECODER : process ( state )

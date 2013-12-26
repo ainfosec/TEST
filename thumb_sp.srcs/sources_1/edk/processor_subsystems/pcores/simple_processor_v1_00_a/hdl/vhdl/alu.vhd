@@ -2,7 +2,7 @@
 -- Version:           0.01
 -- Description:       Performs all arithmetic and sets/clears flags
 -- Date Created:      Wed, Nov 13, 2013 20:59:21
--- Last Modified:     Fri, Dec 06, 2013 00:20:08
+-- Last Modified:     Tue, Dec 24, 2013 16:18:44
 -- VHDL Standard:     VHDL '93
 -- Author:            Sean McClain <mcclains@ainfosec.com>
 -- Copyright:         (c) 2013 Assured Information Security, All Rights Reserved
@@ -37,9 +37,6 @@ is
 
     -- second argument to the requested operation
     b             : in    std_logic_vector(DATA_WIDTH-1 downto 0);
-
-    -- convenience values for comparisons
-    zero          : in    std_logic_vector(DATA_WIDTH-1 downto 0);
 
     -- one of 64 unique ARM Thumb ISA opcodes for the requested operation
     opcode        : in    integer;
@@ -84,7 +81,13 @@ is
   signal c_l                 : std_logic;
   signal v_l                 : std_logic;
 
+  -- convenience value for comparisons
+  signal zero                : std_logic_vector(DATA_WIDTH-1 downto 0);
+
 begin
+
+  -- convenience value for comparisons
+  zero <= (others => '0');
 
   -- send flags on out
   n <= n_l;

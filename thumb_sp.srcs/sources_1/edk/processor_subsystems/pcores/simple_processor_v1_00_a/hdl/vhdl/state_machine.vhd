@@ -23,10 +23,6 @@ use simple_processor_v1_00_a.states.all;
 ---
 entity state_machine
 is
-  generic
-  (
-    SOFT_ADDRESS_WIDTH : integer          := 32
-  );
   port
   (
     -- acknowledgements, sent when a signal has done its work
@@ -60,7 +56,7 @@ begin
   DO_UPDATE : process (
       Clk, state,
       reg_file_reset_ack, alu_reset_ack,
-      send_inst_ack, decode_ack, load_ack, math_ack, store_ack,
+      send_inst_ack, decode_ack, load_ack, math_ack, store_ack
       )
   is
   begin

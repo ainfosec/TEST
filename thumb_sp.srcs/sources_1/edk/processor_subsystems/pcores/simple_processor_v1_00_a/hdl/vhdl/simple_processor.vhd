@@ -2,7 +2,7 @@
 -- Version:           1.00.a
 -- Description:       Simple ARM Thumb(R) processor
 -- Date Created:      Wed, Nov 13, 2013 20:59:21
--- Last Modified:     Thu, Dec 19, 2013 23:53:13
+-- Last Modified:     Thu, Dec 26, 2013 17:40:49
 -- VHDL Standard:     VHDL'93
 -- Author:            Sean McClain <mcclains@ainfosec.com>
 -- Copyright:         (c) 2013 Assured Information Security, All Rights Reserved
@@ -31,23 +31,37 @@ use simple_processor_v1_00_a.reg_file_constants.all;
 ---
 entity simple_processor
 is
+  generic
+  (
+    -- number of comm channels owned by EDK register file
+    NUM_CHANNELS  : integer          := 32
+  );
   port
   (
+    -- communication with EDK register file
+    data_to_mem   : out   std_logic_vector (
+        DATA_WIDTH*NUM_CHANNELS-1 downto 0
+        );
+    data_from_mem : in    std_logic_vector (
+        DATA_WIDTH*NUM_CHANNELS-1 downto 0
+        );
+    addresses     : out   std_logic_vector (
+        DATA_WIDTH*NUM_CHANNELS-1 downto 0
+        );
+    enables       : out   std_logic_vector(NUM_CHANNELS-1 downto 0);
+    data_mode     : out   std_logic;
+    rd_ack        : in    std_logic;
+    wr_ack        : in    std_logic;
+
     -- clock and reset
-    Clk                     : in    std_logic;
-    Reset                   : in    std_logic
+    Clk           : in    std_logic;
+    Reset         : in    std_logic
   );
 
 end entity simple_processor;
 
 architecture IMP of simple_processor
 is
-
-  -- convenience variable, for comparisons
-  signal zero                : std_logic_vector(31 downto 0);
-
-  -- current processing state
-  signal state               : integer range STATE_MIN to STATE_MAX;
 
   -- acknowledgements to drive the state machine
   signal reg_file_reset_ack  : std_logic;
@@ -57,8 +71,6 @@ is
   signal load_ack            : std_logic;
   signal math_ack            : std_logic;
   signal store_ack           : std_logic;
-  signal decode_r_ack        : std_logic;
-  signal decode_w_ack        : std_logic;
 
   -- raw binary for the current instruction
   signal raw_instruction     : std_logic_vector(15 downto 0);
@@ -100,7 +112,7 @@ is
   signal alu_out             : std_logic_vector(31 downto 0);
 
   -- write enables for register file
-  signal wr_en               : std_logic_vector(WR_EN_SIZEOF-1 downto 0);
+  signal alu_wr_en           : std_logic_vector(WR_EN_SIZEOF-1 downto 0);
 
   -- retrieved register values from register file
   signal sp_plus_off         : std_logic_vector(DATA_WIDTH-1 downto 0);
@@ -123,16 +135,15 @@ is
   signal pc                  : integer;
   signal lr                  : integer;
 
+  -- current processing state
+  signal state               : integer range STATE_MIN to STATE_MAX;
+
 begin
 
   ---
   -- Triggers all processor events in order
   ---
   STATE_MACHINE_I : entity simple_processor_v1_00_a.state_machine
-    generic map
-    (
-      SOFT_ADDRESS_WIDTH     => ADDR_SPACE
-    )
     port map
     (
       reg_file_reset_ack     => reg_file_reset_ack,
@@ -153,10 +164,17 @@ begin
   REG_FILE_I : entity simple_processor_v1_00_a.reg_file
     generic map
     (
-      SOFT_ADDRESS_WIDTH     => ADDR_SPACE
+      NUM_CHANNELS           => NUM_CHANNELS
     )
     port map
     (
+      data_to_mem            => data_to_mem,
+      data_from_mem          => data_from_mem,
+      addresses              => addresses,
+      enables                => enables,
+      data_mode              => data_mode,
+      mem_rd_ack             => rd_ack,
+      mem_wr_ack             => wr_ack,
       Rm                     => Rm,
       Rn                     => Rn,
       Rs                     => Rs,
@@ -168,20 +186,15 @@ begin
       flag_lr_pc             => flag_lr_pc,
       flags_h                => flags_h,
       alu_out                => alu_out,
-      wr_en                  => wr_en,
+      alu_wr_en              => alu_wr_en,
       flag_n                 => flag_n,
       flag_z                 => flag_z,
       flag_c                 => flag_c,
       flag_v                 => flag_v,
-      instruction            => raw_instruction,
       reg_file_reset_ack     => reg_file_reset_ack,
       send_inst_ack          => send_inst_ack,
       load_ack               => load_ack,
       store_ack              => store_ack,
-      soft_read_ack          => soft_read_ack,
-      soft_write_ack         => soft_write_ack,
-      decode_r_ack           => decode_r_ack,
-      decode_w_ack           => decode_w_ack,
       sp_plus_off            => sp_plus_off,
       pc_plus_off            => pc_plus_off,
       lr_plus_off            => lr_plus_off,
@@ -201,8 +214,9 @@ begin
       sp_val                 => sp,
       pc_val                 => pc,
       lr_val                 => lr,
+      instruction            => raw_instruction,
       state                  => state
-  );
+    );
 
   ---
   -- Selects 2 register file outputs to send into the ALU,
@@ -234,7 +248,7 @@ begin
       pc                     => pc,
       alu_a                  => alu_a,
       alu_b                  => alu_b,
-      wr_en                  => wr_en
+      wr_en                  => alu_wr_en
     );
 
   ---
@@ -254,7 +268,6 @@ begin
       Imm_5                  => Imm_5,
       Imm_8                  => Imm_8,
       Imm_11                 => Imm_11,
-      zero                   => zero,
       flag_lr_pc             => flag_lr_pc,
       flags_h                => flags_h,
       decode_ack             => decode_ack,
@@ -269,7 +282,6 @@ begin
     (
       a                      => alu_a,
       b                      => alu_b,
-      zero                   => zero,
       opcode                 => opcode,
       result                 => alu_out,
       n                      => flag_n,

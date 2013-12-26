@@ -2,7 +2,7 @@
 -- Version:           1.00.a
 -- Description:       Contains the ids used by the state_machine
 -- Date Created:      Wed, Dec 04, 2013 01:17:21
--- Last Modified:     Thu, Dec 05, 2013 22:25:40
+-- Last Modified:     Tue, Dec 24, 2013 15:08:30
 -- VHDL Standard:     VHDL'93
 -- Author:            Sean McClain <mcclains@ainfosec.com>
 -- Copyright:         (c) 2013 Assured Information Security, All Rights Reserved
@@ -115,24 +115,31 @@ package reg_file_constants is
 
   -- indices of ALU read registers within the memory I/O channel
   constant MEMIO_SPPLUSOFF   : integer := 0;
+  constant MEMIO_INSTR_REG   : integer := 0;
   constant MEMIO_PCPLUSOFF   : integer := 1;
+  constant MEMIO_USRSS_REG   : integer := 1;
+  constant MEMIO_FIQSS_REG   : integer := 2;
   constant MEMIO_LRPLUSOFF   : integer := 2;
   constant MEMIO_RNPLUSOFF   : integer := 3;
+  constant MEMIO_IRQSS_REG   : integer := 3;
   constant MEMIO_RMPLUSRN    : integer := 4;
+  constant MEMIO_SVCSS_REG   : integer := 4;
+  constant MEMIO_RDHREG      : integer := 5;
   constant MEMIO_RMHHREG     : integer := 5;
-  constant MEMIO_RDHREG      : integer := 6;
-  constant MEMIO_RMHLREG     : integer := 7;
-  constant MEMIO_RNHHREG     : integer := 8;
-  constant MEMIO_RNHLREG     : integer := 9;
-  constant MEMIO_RMREG       : integer := 10;
-  constant MEMIO_RNREG       : integer := 11;
-  constant MEMIO_RSREG       : integer := 12;
-  constant MEMIO_RDREG       : integer := 13;
-  constant MEMIO_SPREG       : integer := 14;
-  constant MEMIO_PCREG       : integer := 15;
-  constant MEMIO_LRREG       : integer := 16;
-  constant MEMIO_INSTR_REG   : integer := 17;
-  constant MEMIO_N_CHANNELS  : integer := 18;
+  constant MEMIO_MONSS_REG   : integer := 5;
+  constant MEMIO_RMHLREG     : integer := 6;
+  constant MEMIO_UNDSS_REG   : integer := 6;
+  constant MEMIO_RNHHREG     : integer := 7;
+  constant MEMIO_ABOSS_REG   : integer := 7;
+  constant MEMIO_RNHLREG     : integer := 8;
+  constant MEMIO_RMREG       : integer := 9;
+  constant MEMIO_RNREG       : integer := 10;
+  constant MEMIO_RSREG       : integer := 11;
+  constant MEMIO_RDREG       : integer := 12;
+  constant MEMIO_SPREG       : integer := 13;
+  constant MEMIO_PCREG       : integer := 14;
+  constant MEMIO_LRREG       : integer := 15;
+  constant MEMIO_N_CHANNELS  : integer := 16;
 
   -- 4-byte or 8-byte word-addressable memory
   type regs_type is array(NUM_REGS-1 downto 0)

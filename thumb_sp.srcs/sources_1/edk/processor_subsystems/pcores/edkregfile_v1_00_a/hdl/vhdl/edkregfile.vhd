@@ -165,9 +165,18 @@ entity edkregfile is
         NUM_CHANNELS-1 downto 0
         );
 
+    -- Lets hardware peripherals set the data mode
+    data_mode                      : in    std_logic;
+
     -- hardware acks, reads or writes were performed
     rd_ack        : out   std_logic;
     wr_ack        : out   std_logic;
+
+    -- a clock signal that can be turned on or off through EDK
+    pulse         : out   std_logic;
+
+    -- exposed and inverted AXI reset signal
+    reset_out     : out   std_logic;
 
     -- ADD USER PORTS ABOVE THIS LINE ------------------
 
@@ -281,43 +290,7 @@ architecture IMP of edkregfile is
   signal user_IP2Bus_WrAck              : std_logic;
   signal user_IP2Bus_Error              : std_logic;
 
-  signal tester_data                    : std_logic_vector(511 downto 0);
-  signal tester_enables                 : std_logic_vector(15 downto 0);
-
 begin
-
-  tester_data(511 downto 480) <= x"0000000E";
-  tester_data(479 downto 448) <= x"0000000F";
-  tester_data(447 downto 416) <= x"0000000D";
-  tester_data(415 downto 384) <= x"0000000C";
-  tester_data(383 downto 352) <= x"0000000B";
-  tester_data(351 downto 320) <= x"0000000A";
-  tester_data(319 downto 288) <= x"00000009";
-  tester_data(287 downto 256) <= x"00000008";
-  tester_data(255 downto 224) <= x"00000007";
-  tester_data(223 downto 192) <= x"00000006";
-  tester_data(191 downto 160) <= x"00000005";
-  tester_data(159 downto 128) <= x"00000004";
-  tester_data(127 downto 96)  <= x"00000003";
-  tester_data(95  downto 64)  <= x"00000002";
-  tester_data(63  downto 32)  <= x"00000001";
-  tester_data(31  downto 0)   <= x"00000000";
-  tester_enables(15) <= '1';
-  tester_enables(14) <= '1';
-  tester_enables(13) <= '0';
-  tester_enables(12) <= '0';
-  tester_enables(11) <= '1';
-  tester_enables(10) <= '1';
-  tester_enables(9)  <= '0';
-  tester_enables(8)  <= '0';
-  tester_enables(7)  <= '1';
-  tester_enables(6)  <= '1';
-  tester_enables(5)  <= '0';
-  tester_enables(4)  <= '0';
-  tester_enables(3)  <= '1';
-  tester_enables(2)  <= '1';
-  tester_enables(1)  <= '0';
-  tester_enables(0)  <= '0';
 
   ------------------------------------------
   -- instantiate axi_lite_ipif
@@ -409,15 +382,15 @@ begin
     port map
     (
       -- MAP USER PORTS BELOW THIS LINE ------------------
---      data_in                        => data_in,
-      data_in                        => tester_data,
+      data_in                        => data_in,
       data_out                       => data_out,
---      addresses                      => addresses,
-      addresses                      => tester_data,
---      enables                        => enables,
-      enables                        => tester_enables,
+      addresses                      => addresses,
+      enables                        => enables,
+      data_mode                      => data_mode,
       rd_ack                         => rd_ack,
       wr_ack                         => wr_ack,
+      pulse                          => pulse,
+      reset_out                      => reset_out,
       -- MAP USER PORTS ABOVE THIS LINE ------------------
 
       Bus2IP_Clk                     => ipif_Bus2IP_Clk,

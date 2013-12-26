@@ -3,7 +3,7 @@
 -- Description:       provides both registers and data memory compatible with
 --                    the ARM(R) instruction set
 -- Date Created:      Wed, Nov 13, 2013 20:59:21
--- Last Modified:     Fri, Dec 20, 2013 00:00:44
+-- Last Modified:     Tue, Dec 24, 2013 15:08:23
 -- VHDL Standard:     VHDL'93
 -- Author:            Sean McClain <mcclains@ainfosec.com>
 -- Copyright:         (c) 2013 Assured Information Security, All Rights Reserved
@@ -26,8 +26,28 @@ use simple_processor_v1_00_a.reg_file_constants.all;
 ---
 entity reg_file
 is
+  generic
+  (
+    -- number of comm channels owned by EDK register file
+    NUM_CHANNELS  : integer          := 32
+  );
   port
   (
+    -- For I/O with block memory
+    data_to_mem          : out   std_logic_vector (
+        DATA_WIDTH*NUM_CHANNELS-1 downto 0
+        );
+    data_from_mem        : in    std_logic_vector (
+        DATA_WIDTH*NUM_CHANNELS-1 downto 0
+        );
+    addresses            : out   std_logic_vector (
+        DATA_WIDTH*NUM_CHANNELS-1 downto 0
+        );
+    enables              : out   std_logic_vector(NUM_CHANNELS-1 downto 0);
+    data_mode            : out   std_logic;
+    mem_rd_ack           : in    std_logic;
+    mem_wr_ack           : in    std_logic;
+
     -- One of four registers available to a single ARM instruction
     Rm                   : in    std_logic_vector(2 downto 0);
     Rn                   : in    std_logic_vector(2 downto 0);
@@ -60,11 +80,9 @@ is
 
     -- state machine ack signals
     reg_file_reset_ack   : out   std_logic;
-    send_inst_ack        : out std_logic;
-    load_ack             : out std_logic;
-    store_ack            : out std_logic;
-    decode_r_ack         : out   std_logic;
-    decode_w_ack         : out   std_logic;
+    send_inst_ack        : out   std_logic;
+    load_ack             : out   std_logic;
+    store_ack            : out   std_logic;
 
     -- the contents of the accessible registers
     sp_plus_off          : out   std_logic_vector(DATA_WIDTH-1 downto 0);
@@ -110,163 +128,329 @@ is
   -- encoded link register
   signal lr            : integer range MEM_BOUND to NUM_REGS-1;
 
-  -- index safe register pointers for X + (Y << 2)
-  signal sp_plus_off_i : integer range MEM_BOUND to NUM_REGS-1;
-  signal pc_plus_off_i : integer range MEM_BOUND to NUM_REGS-1;
-  signal lr_plus_off_i : integer range MEM_BOUND to NUM_REGS-1;
-  signal rn_plus_off_i : integer range MEM_BOUND to NUM_REGS-1;
-
-  -- index safe register pointers for X + Y
-  signal rm_plus_rn_i  : integer range MEM_BOUND to NUM_REGS-1;
-
-  -- index safe register pointers for X + (H ? 8  : 0)
-  signal flags_hh_u    : unsigned(3 downto 0);
-  signal flags_hl_u    : unsigned(3 downto 0);
-  signal rm_hh_reg_i   : integer range 0 to REG_BOUND;
-  signal rm_hl_reg_i   : integer range 0 to REG_BOUND;
-  signal rn_hh_reg_i   : integer range 0 to REG_BOUND;
-  signal rn_hl_reg_i   : integer range 0 to REG_BOUND;
-  signal rd_h_reg_i    : integer range 0 to REG_BOUND;
-
-  -- index safe register pointers for X
-  signal rm_reg_i      : integer range 0 to REG_BOUND;
-  signal rn_reg_i      : integer range 0 to REG_BOUND;
-  signal rs_reg_i      : integer range 0 to REG_BOUND;
-  signal rd_reg_i      : integer range 0 to REG_BOUND;
-
-  -- I/O channels for memory
-  signal mem_enables   : std_logic_vector(MEMIO_N_CHANNELS-1 downto 0);
-  signal mem_addresses : std_logic_vector (
-      MEMIO_N_CHANNELS*DATA_WIDTH-1 downto 0
-      );
-  signal mem_data_in   : std_logic_vector (
-      MEMIO_N_CHANNELS*DATA_WIDTH-1 downto 0
-      );
-  signal mem_data_out  : std_logic_vector (
-      MEMIO_N_CHANNELS*DATA_WIDTH-1 downto 0
-      );
-  signal mem_rd_ack    : std_logic;
-  signal mem_wr_ack    : std_logic;
+  -- One of 7 ARM(R) processor modes
+  signal mode          : std_logic_vector(4 downto 0);
 
 begin
 
   ---
-  -- Set memory indices so they stay inside memory bounds
+  -- Trigger I/O between registers and memory, and the ALU and EDK
   ---
-  flags_hh_u(3) <= '1' when flags_h(1) = '1' else '0';
-  flags_hh_u(2 downto 0) <= (others => '0');
-  flags_hl_u(3) <= '1' when flags_h(0) = '1' else '0';
-  flags_hl_u(2 downto 0) <= (others => '0');
-  rm_reg_i      <= to_integer(unsigned(Rm));
-  rn_reg_i      <= to_integer(unsigned(Rn));
-  rs_reg_i      <= to_integer(unsigned(Rs));
-  rd_reg_i      <= to_integer(unsigned(Rd));
-  rn_plus_off_i <= rn_reg_i + to_integer(unsigned(Imm_5) & "00");
-  rm_plus_rn_i  <= rm_reg_i + rn_reg_i;
-  rm_hh_reg_i   <= rm_reg_i + to_integer(flags_hh_u);
-  rm_hl_reg_i   <= rm_reg_i + to_integer(flags_hl_u);
-  rn_hh_reg_i   <= rn_reg_i + to_integer(flags_hh_u);
-  rn_hl_reg_i   <= rn_reg_i + to_integer(flags_hl_u);
-  rd_h_reg_i    <= rd_reg_i + to_integer(flags_hh_u);
-  GRAB_SP_INDEX : process ( sp, Imm_8 )
+  SEND_TO_MEMORY : process ( state )
   is
-    variable i : integer;
+    variable flags_hh_u    : std_logic_vector(3 downto 0);
+    variable flags_hl_u    : std_logic_vector(3 downto 0);
+    variable rm_reg_i      : integer;
+    variable rn_reg_i      : integer;
+    variable rs_reg_i      : integer;
+    variable rd_reg_i      : integer;
+    variable rn_plus_off_i : integer;
+    variable rm_plus_rn_i  : integer;
+    variable rm_hh_reg_i   : integer;
+    variable rm_hl_reg_i   : integer;
+    variable rn_hh_reg_i   : integer;
+    variable rn_hl_reg_i   : integer;
+    variable rd_h_reg_i    : integer;
+    variable sp_plus_off_i : integer;
+    variable pc_plus_off_i : integer;
+    variable lr_plus_off_i : integer;
   begin
-    i := sp + to_integer(unsigned(Imm_8) & "00");
-    if i < NUM_REGS
-    then
-      sp_plus_off_i <= i;
-    else
-      sp_plus_off_i <= NUM_REGS-1;
-    end if;
-  end process GRAB_SP_INDEX;
-  GRAB_PC_INDEX : process ( pc, Imm_8 )
-  is
-    variable i : integer;
-  begin
-    i := pc + to_integer(unsigned(Imm_8) & "00");
-    if i < NUM_REGS
-    then
-      pc_plus_off_i <= i;
-    else
-      pc_plus_off_i <= NUM_REGS-1;
-    end if;
-  end process GRAB_PC_INDEX;
-  GRAB_LR_INDEX : process ( lr, Imm_8 )
-  is
-    variable i : integer;
-  begin
-    i := lr + to_integer(unsigned(Imm_8) & "00");
-    if i < NUM_REGS
-    then
-      lr_plus_off_i <= i;
-    else
-      lr_plus_off_i <= NUM_REGS-1;
-    end if;
-  end process GRAB_LR_INDEX;
 
-  ---
-  -- Set up the memory I/O channels. 18 words are read and written
-  --  at a time.
-  mem_addresses (
-      (MEMIO_SPPLUSOFF+1)*DATA_WIDTH-1 downto MEMIO_SPPLUSOFF*DATA_WIDTH
-      ) <= std_logic_vector(to_unsigned(sp_plus_off_i, DATA_WIDTH));
-  mem_addresses (
-      (MEMIO_PCPLUSOFF+1)*DATA_WIDTH-1 downto MEMIO_PCPLUSOFF*DATA_WIDTH
-      ) <= std_logic_vector(to_unsigned(pc_plus_off_i, DATA_WIDTH));
-  mem_addresses (
-      (MEMIO_LRPLUSOFF+1)*DATA_WIDTH-1 downto MEMIO_LRPLUSOFF*DATA_WIDTH
-      ) <= std_logic_vector(to_unsigned(lr_plus_off_i, DATA_WIDTH));
-  mem_addresses (
-      (MEMIO_RNPLUSOFF+1)*DATA_WIDTH-1 downto MEMIO_RNPLUSOFF*DATA_WIDTH
-      ) <= std_logic_vector(to_unsigned(rn_plus_off_i, DATA_WIDTH));
-  mem_addresses (
-      (MEMIO_RMPLUSRN+1)*DATA_WIDTH-1  downto MEMIO_RMPLUSRN*DATA_WIDTH
-      ) <= std_logic_vector(to_unsigned(rm_plus_rn_i, DATA_WIDTH));
-  mem_addresses (
-      (MEMIO_RDHREG+1)*DATA_WIDTH-1    downto MEMIO_RDHREG*DATA_WIDTH
-      ) <= std_logic_vector(to_unsigned(rd_h_reg_i, DATA_WIDTH));
-  mem_addresses (
-      (MEMIO_RMHHREG+1)*DATA_WIDTH-1   downto MEMIO_RMHHREG*DATA_WIDTH
-      ) <= std_logic_vector(to_unsigned(rm_hh_reg_i, DATA_WIDTH));
-  mem_addresses (
-      (MEMIO_RMHLREG+1)*DATA_WIDTH-1   downto MEMIO_RMHLREG*DATA_WIDTH
-      ) <= std_logic_vector(to_unsigned(rm_hl_reg_i, DATA_WIDTH));
-  mem_addresses (
-      (MEMIO_RNHHREG+1)*DATA_WIDTH-1   downto MEMIO_RNHHREG*DATA_WIDTH
-      ) <= std_logic_vector(to_unsigned(rn_hh_reg_i, DATA_WIDTH));
-  mem_addresses (
-      (MEMIO_RNHLREG+1)*DATA_WIDTH-1   downto MEMIO_RNHLREG*DATA_WIDTH
-      ) <= std_logic_vector(to_unsigned(rn_hl_reg_i, DATA_WIDTH));
-  mem_addresses (
-      (MEMIO_RMREG+1)*DATA_WIDTH-1     downto MEMIO_RMREG*DATA_WIDTH
-      ) <= std_logic_vector(to_unsigned(rm_reg_i, DATA_WIDTH));
-  mem_addresses (
-      (MEMIO_RNREG+1)*DATA_WIDTH-1     downto MEMIO_RNREG*DATA_WIDTH
-      ) <= std_logic_vector(to_unsigned(rn_reg_i, DATA_WIDTH));
-  mem_addresses (
-      (MEMIO_RSREG+1)*DATA_WIDTH-1     downto MEMIO_RSREG*DATA_WIDTH
-      ) <= std_logic_vector(to_unsigned(rs_reg_i, DATA_WIDTH));
-  mem_addresses (
-      (MEMIO_RDREG+1)*DATA_WIDTH-1     downto MEMIO_RDREG*DATA_WIDTH
-      ) <= std_logic_vector(to_unsigned(rd_reg_i, DATA_WIDTH));
-  mem_addresses (
-      (MEMIO_SPREG+1)*DATA_WIDTH-1     downto MEMIO_SPREG*DATA_WIDTH
-      ) <= std_logic_vector(to_unsigned(sp, DATA_WIDTH));
-  mem_addresses (
-      (MEMIO_PCREG+1)*DATA_WIDTH-1     downto MEMIO_PCREG*DATA_WIDTH
-      ) <= std_logic_vector(to_unsigned(pc, DATA_WIDTH));
-  mem_addresses (
-      (MEMIO_LRREG+1)*DATA_WIDTH-1     downto MEMIO_LRREG*DATA_WIDTH
-      ) <= std_logic_vector(to_unsigned(lr, DATA_WIDTH));
-  mem_addresses (
-      (MEMIO_INSTR_REG+1)*DATA_WIDTH-1 downto MEMIO_INSTR_REG*DATA_WIDTH
-      ) <= std_logic_vector(to_unsigned(INSTR_REG, DATA_WIDTH));
+    -- pre-calculate in-bounds addresses
+    if state = DO_ALU_INPUT or state = DO_LOAD_STORE
+    then
+      flags_hh_u(3) := '1' when flags_h(1) = '1' else '0';
+      flags_hh_u(2 downto 0) := (others => '0');
+      flags_hl_u(3) := '1' when flags_h(0) = '1' else '0';
+      flags_hl_u(2 downto 0) := (others => '0');
+      rm_reg_i      := to_integer(unsigned(Rm));
+      rn_reg_i      := to_integer(unsigned(Rn));
+      rs_reg_i      := to_integer(unsigned(Rs));
+      rd_reg_i      := to_integer(unsigned(Rd));
+      rn_plus_off_i := to_integer(unsigned(Rn) + (unsigned(Imm_5) & "00"));
+      rm_plus_rn_i  := to_integer(unsigned(Rm) + unsigned(Rn));
+      rm_hh_reg_i   := to_integer(unsigned(Rm) + unsigned(flags_hh_u));
+      rm_hl_reg_i   := to_integer(unsigned(Rm) + unsigned(flags_hl_u));
+      rn_hh_reg_i   := to_integer(unsigned(Rn) + unsigned(flags_hh_u));
+      rn_hl_reg_i   := to_integer(unsigned(Rn) + unsigned(flags_hl_u));
+      rd_h_reg_i    := to_integer(unsigned(Rd) + unsigned(flags_hh_u));
+      sp_plus_off_i := sp + to_integer(unsigned(Imm_8) & "00");
+      pc_plus_off_i := pc + to_integer(unsigned(Imm_8) & "00");
+      lr_plus_off_i := lr + to_integer(unsigned(Imm_8) & "00");
+      if sp_plus_off_i >= NUM_REGS
+      then
+        sp_plus_off_i := NUM_REGS-1;
+      end if;
+      if pc_plus_off_i >= NUM_REGS
+      then
+        pc_plus_off_i := NUM_REGS-1;
+      end if;
+      if lr_plus_off_i < NUM_REGS
+      then
+        lr_plus_off_i := NUM_REGS-1;
+      end if;
+    end if;
+
+    -- initialize memory
+    if    state = DO_REG_FILE_RESET
+    then
+
+      -- write to memory
+      data_mode <= '1';
+
+      -- set up addresses
+      addresses (
+        (MEMIO_INSTR_REG+1)*DATA_WIDTH-1 downto MEMIO_INSTR_REG*DATA_WIDTH
+        ) <= std_logic_vector(to_unsigned(INSTR_REG, DATA_WIDTH));
+      addresses (
+        (MEMIO_USRSS_REG+1)*DATA_WIDTH-1 downto MEMIO_USRSS_REG*DATA_WIDTH
+        ) <= std_logic_vector(to_unsigned(USRSS_REG, DATA_WIDTH));
+      addresses (
+        (MEMIO_FIQSS_REG+1)*DATA_WIDTH-1 downto MEMIO_FIQSS_REG*DATA_WIDTH
+        ) <= std_logic_vector(to_unsigned(FIQSS_REG, DATA_WIDTH));
+      addresses (
+        (MEMIO_IRQSS_REG+1)*DATA_WIDTH-1 downto MEMIO_IRQSS_REG*DATA_WIDTH
+        ) <= std_logic_vector(to_unsigned(IRQSS_REG, DATA_WIDTH));
+      addresses (
+        (MEMIO_SVCSS_REG+1)*DATA_WIDTH-1 downto MEMIO_SVCSS_REG*DATA_WIDTH
+        ) <= std_logic_vector(to_unsigned(SVCSS_REG, DATA_WIDTH));
+      addresses (
+        (MEMIO_MONSS_REG+1)*DATA_WIDTH-1 downto MEMIO_MONSS_REG*DATA_WIDTH
+        ) <= std_logic_vector(to_unsigned(MONSS_REG, DATA_WIDTH));
+      addresses (
+        (MEMIO_UNDSS_REG+1)*DATA_WIDTH-1 downto MEMIO_UNDSS_REG*DATA_WIDTH
+        ) <= std_logic_vector(to_unsigned(UNDSS_REG, DATA_WIDTH));
+      addresses (
+        (MEMIO_ABOSS_REG+1)*DATA_WIDTH-1 downto MEMIO_ABOSS_REG*DATA_WIDTH
+        ) <= std_logic_vector(to_unsigned(ABOSS_REG, DATA_WIDTH));
+
+      -- most values should be zeroed
+      data_to_mem <= (others => '0');
+
+      -- default instruction is "unused"
+      data_to_mem (
+          (MEMIO_INSTR_REG+1)*DATA_WIDTH-1 downto MEMIO_INSTR_REG*DATA_WIDTH
+          ) <= "00000000000000001101111011111111";
+
+      -- hard-drive the modes in the saved program state registers
+      data_to_mem ((USRSS_REG+1)*DATA_WIDTH-1 downto USRSS_REG*DATA_WIDTH)
+        (PSR_M_4 downto PSR_M_0) <= PM_USER;
+      data_to_mem((FIQSS_REG+1)*DATA_WIDTH-1  downto FIQSS_REG*DATA_WIDTH)
+        (PSR_M_4 downto PSR_M_0) <= PM_FIQ;
+      data_to_mem((IRQSS_REG+1)*DATA_WIDTH-1  downto IRQSS_REG*DATA_WIDTH)
+        (PSR_M_4 downto PSR_M_0) <= PM_IRQ;
+      data_to_mem((SVCSS_REG+1)*DATA_WIDTH-1  downto SVCSS_REG*DATA_WIDTH)
+        (PSR_M_4 downto PSR_M_0) <= PM_SVC;
+      data_to_mem((MONSS_REG+1)*DATA_WIDTH-1  downto MONSS_REG*DATA_WIDTH)
+        (PSR_M_4 downto PSR_M_0) <= PM_MONITOR;
+      data_to_mem((UNDSS_REG+1)*DATA_WIDTH-1  downto UNDSS_REG*DATA_WIDTH)
+        (PSR_M_4 downto PSR_M_0) <= PM_UNDEF;
+      data_to_mem((ABOSS_REG+1)*DATA_WIDTH-1  downto ABOSS_REG*DATA_WIDTH)
+        (PSR_M_4 downto PSR_M_0) <= PM_ABORT;
+
+      -- every mode uses thumb state
+      data_to_mem((USRSS_REG+1)*DATA_WIDTH-1 downto USRSS_REG*DATA_WIDTH)
+        (PSR_T) <= '1';
+      data_to_mem((FIQSS_REG+1)*DATA_WIDTH-1 downto FIQSS_REG*DATA_WIDTH)
+        (PSR_T) <= '1';
+      data_to_mem((IRQSS_REG+1)*DATA_WIDTH-1 downto IRQSS_REG*DATA_WIDTH)
+        (PSR_T) <= '1';
+      data_to_mem((SVCSS_REG+1)*DATA_WIDTH-1 downto SVCSS_REG*DATA_WIDTH)
+        (PSR_T) <= '1';
+      data_to_mem((MONSS_REG+1)*DATA_WIDTH-1 downto MONSS_REG*DATA_WIDTH)
+        (PSR_T) <= '1';
+      data_to_mem((UNDSS_REG+1)*DATA_WIDTH-1 downto UNDSS_REG*DATA_WIDTH)
+        (PSR_T) <= '1';
+      data_to_mem((ABOSS_REG+1)*DATA_WIDTH-1 downto ABOSS_REG*DATA_WIDTH)
+        (PSR_T) <= '1';
+
+      -- enable writes on the modified channels
+      enables <= (
+          MEMIO_INSTR_REG => '1',
+          MEMIO_USRSS_REG       => '1',
+          MEMIO_FIQSS_REG       => '1',
+          MEMIO_IRQSS_REG       => '1',
+          MEMIO_SVCSS_REG       => '1',
+          MEMIO_MONSS_REG       => '1',
+          MEMIO_UNDSS_REG       => '1',
+          MEMIO_ABOSS_REG       => '1',
+          others          => '0'
+          );
+
+      -- default stack pointer is 16 regs below the top of memory
+      sp <= NUM_REGS-16;
+
+      -- default link register and program counter is bottom of memory
+      lr <= MEM_BOUND;
+      pc <= MEM_BOUND;
+
+      -- default mode is user, using thumb
+      mode <= PM_USER;
+
+    -- send a new instruction in to the decoder
+    elsif state = DO_SEND_INST
+    then
+
+      -- reading from memory
+      data_mode <= '0';
+
+      -- we just want the instruction, nothing else
+      addresses <= (others => '0');
+      addresses (
+        (MEMIO_INSTR_REG+1)*DATA_WIDTH-1 downto MEMIO_INSTR_REG*DATA_WIDTH
+        ) <= std_logic_vector(to_unsigned(INSTR_REG, DATA_WIDTH));
+      enables <= (MEMIO_INSTR_REG => '1', others => '0');
+
+    -- grab all possible ALU inputs
+    elsif state = DO_ALU_INPUT
+    then
+
+      -- reading from memory
+      data_mode <= '0';
+
+      -- enable all 16 channels
+      enables <= (others => '1');
+
+      -- set up address space
+      addresses (
+          (MEMIO_SPPLUSOFF+1)*DATA_WIDTH-1 downto MEMIO_SPPLUSOFF*DATA_WIDTH
+          ) <= std_logic_vector(to_unsigned(sp_plus_off_i, DATA_WIDTH));
+      addresses (
+          (MEMIO_PCPLUSOFF+1)*DATA_WIDTH-1 downto MEMIO_PCPLUSOFF*DATA_WIDTH
+          ) <= std_logic_vector(to_unsigned(pc_plus_off_i, DATA_WIDTH));
+      addresses (
+          (MEMIO_LRPLUSOFF+1)*DATA_WIDTH-1 downto MEMIO_LRPLUSOFF*DATA_WIDTH
+          ) <= std_logic_vector(to_unsigned(lr_plus_off_i, DATA_WIDTH));
+      addresses (
+          (MEMIO_RNPLUSOFF+1)*DATA_WIDTH-1 downto MEMIO_RNPLUSOFF*DATA_WIDTH
+          ) <= std_logic_vector(to_unsigned(rn_plus_off_i, DATA_WIDTH));
+      addresses (
+          (MEMIO_RMPLUSRN+1)*DATA_WIDTH-1  downto MEMIO_RMPLUSRN*DATA_WIDTH
+          ) <= std_logic_vector(to_unsigned(rm_plus_rn_i, DATA_WIDTH));
+      addresses (
+          (MEMIO_RMHHREG+1)*DATA_WIDTH-1   downto MEMIO_RMHHREG*DATA_WIDTH
+          ) <= std_logic_vector(to_unsigned(rm_hh_reg_i, DATA_WIDTH));
+      addresses (
+          (MEMIO_RMHLREG+1)*DATA_WIDTH-1   downto MEMIO_RMHLREG*DATA_WIDTH
+          ) <= std_logic_vector(to_unsigned(rm_hl_reg_i, DATA_WIDTH));
+      addresses (
+          (MEMIO_RNHHREG+1)*DATA_WIDTH-1   downto MEMIO_RNHHREG*DATA_WIDTH
+          ) <= std_logic_vector(to_unsigned(rn_hh_reg_i, DATA_WIDTH));
+      addresses (
+          (MEMIO_RNHLREG+1)*DATA_WIDTH-1   downto MEMIO_RNHLREG*DATA_WIDTH
+          ) <= std_logic_vector(to_unsigned(rn_hl_reg_i, DATA_WIDTH));
+      addresses (
+          (MEMIO_RMREG+1)*DATA_WIDTH-1     downto MEMIO_RMREG*DATA_WIDTH
+          ) <= std_logic_vector(to_unsigned(rm_reg_i, DATA_WIDTH));
+      addresses (
+          (MEMIO_RNREG+1)*DATA_WIDTH-1     downto MEMIO_RNREG*DATA_WIDTH
+          ) <= std_logic_vector(to_unsigned(rn_reg_i, DATA_WIDTH));
+      addresses (
+          (MEMIO_RSREG+1)*DATA_WIDTH-1     downto MEMIO_RSREG*DATA_WIDTH
+          ) <= std_logic_vector(to_unsigned(rs_reg_i, DATA_WIDTH));
+      addresses (
+          (MEMIO_RDREG+1)*DATA_WIDTH-1     downto MEMIO_RDREG*DATA_WIDTH
+          ) <= std_logic_vector(to_unsigned(rd_reg_i, DATA_WIDTH));
+      addresses (
+          (MEMIO_SPREG+1)*DATA_WIDTH-1     downto MEMIO_SPREG*DATA_WIDTH
+          ) <= std_logic_vector(to_unsigned(sp, DATA_WIDTH));
+      addresses (
+          (MEMIO_PCREG+1)*DATA_WIDTH-1     downto MEMIO_PCREG*DATA_WIDTH
+          ) <= std_logic_vector(to_unsigned(pc, DATA_WIDTH));
+      addresses (
+          (MEMIO_LRREG+1)*DATA_WIDTH-1     downto MEMIO_LRREG*DATA_WIDTH
+          ) <= std_logic_vector(to_unsigned(lr, DATA_WIDTH));
+
+    -- initialize component
+    elsif state = DO_LOAD_STORE
+    then
+
+      -- writing to memory
+      data_mode <= '1';
+
+      -- rely on the write enable to sort out where this actually goes
+      for i in MEMIO_N_CHANNELS-1 downto 0
+      loop
+        data_to_mem((i+1)*DATA_WIDTH-1 downto i*DATA_WIDTH) <= alu_out;
+      end loop;
+
+      -- set up address space
+      addresses (
+          (MEMIO_SPPLUSOFF+1)*DATA_WIDTH-1 downto MEMIO_SPPLUSOFF*DATA_WIDTH
+          ) <= std_logic_vector(to_unsigned(sp_plus_off_i, DATA_WIDTH));
+      addresses (
+          (MEMIO_PCPLUSOFF+1)*DATA_WIDTH-1 downto MEMIO_PCPLUSOFF*DATA_WIDTH
+          ) <= std_logic_vector(to_unsigned(pc_plus_off_i, DATA_WIDTH));
+      addresses (
+          (MEMIO_LRPLUSOFF+1)*DATA_WIDTH-1 downto MEMIO_LRPLUSOFF*DATA_WIDTH
+          ) <= std_logic_vector(to_unsigned(lr_plus_off_i, DATA_WIDTH));
+      addresses (
+          (MEMIO_RNPLUSOFF+1)*DATA_WIDTH-1 downto MEMIO_RNPLUSOFF*DATA_WIDTH
+          ) <= std_logic_vector(to_unsigned(rn_plus_off_i, DATA_WIDTH));
+      addresses (
+          (MEMIO_RMPLUSRN+1)*DATA_WIDTH-1  downto MEMIO_RMPLUSRN*DATA_WIDTH
+          ) <= std_logic_vector(to_unsigned(rm_plus_rn_i, DATA_WIDTH));
+      addresses (
+          (MEMIO_RDHREG+1)*DATA_WIDTH-1    downto MEMIO_RDHREG*DATA_WIDTH
+          ) <= std_logic_vector(to_unsigned(rd_h_reg_i, DATA_WIDTH));
+      addresses (
+          (MEMIO_RMHLREG+1)*DATA_WIDTH-1   downto MEMIO_RMHLREG*DATA_WIDTH
+          ) <= std_logic_vector(to_unsigned(rm_hl_reg_i, DATA_WIDTH));
+      addresses (
+          (MEMIO_RNHHREG+1)*DATA_WIDTH-1   downto MEMIO_RNHHREG*DATA_WIDTH
+          ) <= std_logic_vector(to_unsigned(rn_hh_reg_i, DATA_WIDTH));
+      addresses (
+          (MEMIO_RNHLREG+1)*DATA_WIDTH-1   downto MEMIO_RNHLREG*DATA_WIDTH
+          ) <= std_logic_vector(to_unsigned(rn_hl_reg_i, DATA_WIDTH));
+      addresses (
+          (MEMIO_RMREG+1)*DATA_WIDTH-1     downto MEMIO_RMREG*DATA_WIDTH
+          ) <= std_logic_vector(to_unsigned(rm_reg_i, DATA_WIDTH));
+      addresses (
+          (MEMIO_RNREG+1)*DATA_WIDTH-1     downto MEMIO_RNREG*DATA_WIDTH
+          ) <= std_logic_vector(to_unsigned(rn_reg_i, DATA_WIDTH));
+      addresses (
+          (MEMIO_RSREG+1)*DATA_WIDTH-1     downto MEMIO_RSREG*DATA_WIDTH
+          ) <= std_logic_vector(to_unsigned(rs_reg_i, DATA_WIDTH));
+      addresses (
+          (MEMIO_RDREG+1)*DATA_WIDTH-1     downto MEMIO_RDREG*DATA_WIDTH
+          ) <= std_logic_vector(to_unsigned(rd_reg_i, DATA_WIDTH));
+      addresses (
+          (MEMIO_SPREG+1)*DATA_WIDTH-1     downto MEMIO_SPREG*DATA_WIDTH
+          ) <= std_logic_vector(to_unsigned(sp, DATA_WIDTH));
+      addresses (
+          (MEMIO_PCREG+1)*DATA_WIDTH-1     downto MEMIO_PCREG*DATA_WIDTH
+          ) <= std_logic_vector(to_unsigned(pc, DATA_WIDTH));
+      addresses (
+          (MEMIO_LRREG+1)*DATA_WIDTH-1     downto MEMIO_LRREG*DATA_WIDTH
+          ) <= std_logic_vector(to_unsigned(lr, DATA_WIDTH));
+
+      -- set enable bits
+      enables <= (
+          MEMIO_SPPLUSOFF => alu_wr_en(WR_EN_SP_PLUS_OFF),
+          MEMIO_RNPLUSOFF => alu_wr_en(WR_EN_RN_PLUS_OFF),
+          MEMIO_RMPLUSRN  => alu_wr_en(WR_EN_RM_PLUS_RN),
+          MEMIO_RDHREG    => alu_wr_en(WR_EN_RD_H_REG),
+          MEMIO_RDREG     => alu_wr_en(WR_EN_RD),
+          MEMIO_SPREG     => alu_wr_en(WR_EN_SP),
+          MEMIO_PCREG     => alu_wr_en(WR_EN_PC),
+          MEMIO_LRREG     => alu_wr_en(WR_EN_LR),
+          others          => '0'
+          );
+
+    -- keep bits clear when we aren't reading or writing
+    else
+      data_to_mem <= (others => '0');
+      addresses   <= (others => '0');
+      enables <= (others => '0');
+
+    end if STATE_SELECT;
+
+  end process SEND_TO_MEMORY;
 
   ---
   -- Event handler for memory I/O
   ---
-  HANDLE_MEMORY_I_O_EVENT : process ( mem_rd_ack, mem_wr_ack, state )
+  RECEIVE_FROM_MEMORY : process ( mem_rd_ack, mem_wr_ack, state )
   is
     variable check_send       : std_logic;
   begin
@@ -276,78 +460,87 @@ begin
 
       -- send a new instruction in to the decoder
       when DO_SEND_INST =>
-        instruction   <= mem_data_out (
-            (MEMIO_INSTR_REG+1)*DATA_WIDTH-1 downto MEMIO_INSTR_REG*DATA_WIDTH
-            ) (15 downto 0);
-        send_inst_ack <= mem_rd_ack;
+        if mem_rd_ack = '1'
+        then
+          instruction   <= data_from_mem (
+              (MEMIO_INSTR_REG+1)*DATA_WIDTH-1 downto MEMIO_INSTR_REG*DATA_WIDTH
+              ) (15 downto 0);
+          send_inst_ack <= '1';
+        end if;
 
       -- grab all possible ALU inputs
       when DO_ALU_INPUT =>
+        if mem_rd_ack = '1'
+        then
 
-        -- send retrieved memory values out
-        sp_plus_off <= mem_data_out (
-            (MEMIO_SPPLUSOFF+1)*DATA_WIDTH-1 downto MEMIO_SPPLUSOFF*DATA_WIDTH
-            );
-        pc_plus_off <= mem_data_out (
-            (MEMIO_PCPLUSOFF+1)*DATA_WIDTH-1 downto MEMIO_PCPLUSOFF*DATA_WIDTH
-            );
-        lr_plus_off <= mem_data_out (
-            (MEMIO_LRPLUSOFF+1)*DATA_WIDTH-1 downto MEMIO_LRPLUSOFF*DATA_WIDTH
-            );
-        rn_plus_off <= mem_data_out (
-            (MEMIO_RNPLUSOFF+1)*DATA_WIDTH-1 downto MEMIO_RNPLUSOFF*DATA_WIDTH
-            );
-        rm_plus_rn  <= mem_data_out (
-            (MEMIO_RMPLUSRN+1)*DATA_WIDTH-1 downto MEMIO_RMPLUSRN*DATA_WIDTH
-            );
-        rm_hh_reg   <= mem_data_out (
-            (MEMIO_RMHHREG+1)*DATA_WIDTH-1 downto MEMIO_RMHHREG*DATA_WIDTH
-            );
-        rm_hl_reg   <= mem_data_out (
-            (MEMIO_RMHLREG+1)*DATA_WIDTH-1 downto MEMIO_RMHLREG*DATA_WIDTH
-            );
-        rn_hh_reg   <= mem_data_out (
-            (MEMIO_RNHHREG+1)*DATA_WIDTH-1 downto MEMIO_RNHHREG*DATA_WIDTH
-            );
-        rn_hl_reg   <= mem_data_out (
-            (MEMIO_RNHLREG+1)*DATA_WIDTH-1 downto MEMIO_RNHLREG*DATA_WIDTH
-            );
-        rm_reg      <= mem_data_out (
-            (MEMIO_RMREG+1)*DATA_WIDTH-1 downto MEMIO_RMREG*DATA_WIDTH
-            );
-        rn_reg      <= mem_data_out (
-            (MEMIO_RNREG+1)*DATA_WIDTH-1 downto MEMIO_RNREG*DATA_WIDTH
-            );
-        rs_reg      <= mem_data_out (
-            (MEMIO_RSREG+1)*DATA_WIDTH-1 downto MEMIO_RSREG*DATA_WIDTH
-            );
-        rd_reg      <= mem_data_out (
-            (MEMIO_RDREG+1)*DATA_WIDTH-1 downto MEMIO_RDREG*DATA_WIDTH
-            );
-        sp_reg      <= mem_data_out (
-            (MEMIO_SPREG+1)*DATA_WIDTH-1 downto MEMIO_SPREG*DATA_WIDTH
-            );
-        pc_reg      <= mem_data_out (
-            (MEMIO_PCREG+1)*DATA_WIDTH-1 downto MEMIO_PCREG*DATA_WIDTH
-            );
-        lr_reg      <= mem_data_out (
-            (MEMIO_LRREG+1)*DATA_WIDTH-1 downto MEMIO_LRREG*DATA_WIDTH
-            );
+          -- send retrieved memory values out
+          sp_plus_off <= data_from_mem (
+              (MEMIO_SPPLUSOFF+1)*DATA_WIDTH-1 downto MEMIO_SPPLUSOFF*DATA_WIDTH
+              );
+          pc_plus_off <= data_from_mem (
+              (MEMIO_PCPLUSOFF+1)*DATA_WIDTH-1 downto MEMIO_PCPLUSOFF*DATA_WIDTH
+              );
+          lr_plus_off <= data_from_mem (
+              (MEMIO_LRPLUSOFF+1)*DATA_WIDTH-1 downto MEMIO_LRPLUSOFF*DATA_WIDTH
+              );
+          rn_plus_off <= data_from_mem (
+              (MEMIO_RNPLUSOFF+1)*DATA_WIDTH-1 downto MEMIO_RNPLUSOFF*DATA_WIDTH
+              );
+          rm_plus_rn  <= data_from_mem (
+              (MEMIO_RMPLUSRN+1)*DATA_WIDTH-1  downto MEMIO_RMPLUSRN*DATA_WIDTH
+              );
+          rm_hh_reg   <= data_from_mem (
+              (MEMIO_RMHHREG+1)*DATA_WIDTH-1   downto MEMIO_RMHHREG*DATA_WIDTH
+              );
+          rm_hl_reg   <= data_from_mem (
+              (MEMIO_RMHLREG+1)*DATA_WIDTH-1   downto MEMIO_RMHLREG*DATA_WIDTH
+              );
+          rn_hh_reg   <= data_from_mem (
+              (MEMIO_RNHHREG+1)*DATA_WIDTH-1   downto MEMIO_RNHHREG*DATA_WIDTH
+              );
+          rn_hl_reg   <= data_from_mem (
+              (MEMIO_RNHLREG+1)*DATA_WIDTH-1   downto MEMIO_RNHLREG*DATA_WIDTH
+              );
+          rm_reg      <= data_from_mem (
+              (MEMIO_RMREG+1)*DATA_WIDTH-1     downto MEMIO_RMREG*DATA_WIDTH
+              );
+          rn_reg      <= data_from_mem (
+              (MEMIO_RNREG+1)*DATA_WIDTH-1     downto MEMIO_RNREG*DATA_WIDTH
+              );
+          rs_reg      <= data_from_mem (
+              (MEMIO_RSREG+1)*DATA_WIDTH-1     downto MEMIO_RSREG*DATA_WIDTH
+              );
+          rd_reg      <= data_from_mem (
+              (MEMIO_RDREG+1)*DATA_WIDTH-1     downto MEMIO_RDREG*DATA_WIDTH
+              );
+          sp_reg      <= data_from_mem (
+              (MEMIO_SPREG+1)*DATA_WIDTH-1     downto MEMIO_SPREG*DATA_WIDTH
+              );
+          pc_reg      <= data_from_mem (
+              (MEMIO_PCREG+1)*DATA_WIDTH-1     downto MEMIO_PCREG*DATA_WIDTH
+              );
+          lr_reg      <= data_from_mem (
+              (MEMIO_LRREG+1)*DATA_WIDTH-1     downto MEMIO_LRREG*DATA_WIDTH
+              );
  
-        -- send pointers
-        sp_val      <= sp;
-        pc_val      <= pc;
-        lr_val      <= lr;
+          -- send pointers
+          sp_val      <= sp;
+          pc_val      <= pc;
+          lr_val      <= lr;
 
-        -- let the state machine know load work is done
-        load_ack <= mem_rd_ack;
+          -- let the state machine know load work is done
+          load_ack <= '1';
+
+        end if;
 
       -- initialize component
       when DO_REG_FILE_RESET =>
         reg_file_reset_ack <= mem_wr_ack;
 
-      -- write ALU output to registers (possibly no writes, so always ack)
+      -- write ALU output to registers
       when DO_LOAD_STORE =>
+
+        -- possibly no writes, so always ack
         store_ack <= '1';
 
       -- reset state machine outputs
@@ -363,75 +556,6 @@ begin
 
     end case;
 
-  end process HANDLE_MEMORY_I_O_EVENT;
-
-  ---
-  -- Read registers and memory to the ALU and external peripheral
-  ---
-  DO_READS : process ( state )
-  is
-  begin
-
-    -- send a new instruction in to the decoder
-    if    state = DO_SEND_INST
-    then
-      mem_addresses (
-          (MEMIO_INSTR_REG+1)*DATA_WIDTH-1 downto MEMIO_INSTR_REG*DATA_WIDTH
-          ) <=
-        std_logic_vector(to_unsigned(INSTR_REG, DATA_WIDTH));
-      mem_enables <= (MEMIO_INSTR_REG => '1', others => '0');
-
-    -- grab all possible ALU inputs
-    elsif state = DO_ALU_INPUT
-    then
-
-      -- set enable bits
-      mem_enables <= (others => '1');
-
-    -- keep read enables clear when we aren't reading
-    else
-      mem_enables <= (others => '0');
-
-    end if;
-
-  end process DO_READS;
-
-  ---
-  -- Modify registers and memory using the ALU and the external peripheral
-  ---
-  DO_WRITES: process ( state )
-  is
-  begin
-
-    -- initialize component
-    if state = DO_LOAD_STORE
-    then
-
-      -- rely on the write enable to sort out where this actually goes
-      for i in 15 downto 0
-      loop
-        mem_data_in((i+1)*DATA_WIDTH-1 downto i*DATA_WIDTH) <= alu_out;
-      end loop;
-
-      -- set enable bits
-      mem_enables <= (
-          MEMIO_SPPLUSOFF => wr_en(WR_EN_SP_PLUS_OFF),
-          MEMIO_RNPLUSOFF => wr_en(WR_EN_RN_PLUS_OFF),
-          MEMIO_RMPLUSRN) => wr_en(WR_EN_RM_PLUS_RN),
-          MEMIO_RDHREG    => wr_en(WR_EN_RD_H_REG),
-          MEMIO_RDREG     => wr_en(WR_EN_RD),
-          MEMIO_SPREG     => wr_en(WR_EN_SP),
-          MEMIO_PCREG     => wr_en(WR_EN_PC),
-          MEMIO_LRREG     => wr_en(WR_EN_LR),
-          others          => '0'
-          );
-
-    -- keep write enable bits clear when we aren't writing
-    else
-      mem_enables <= (others => '0');
-
-    end if STATE_SELECT;
-
-  end process DO_WRITES;
+  end process RECEIVE_FROM_MEMORY;
 
 end IMP;

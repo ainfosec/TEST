@@ -176,9 +176,18 @@ entity user_logic is
         NUM_CHANNELS-1 downto 0
         );
 
+    -- Lets hardware peripherals set the data mode
+    data_mode                      : in    std_logic;
+
     -- hardware acks, reads or writes were performed
     rd_ack        : out   std_logic;
     wr_ack        : out   std_logic;
+
+    -- a clock signal that can be turned on or off through EDK
+    pulse         : out   std_logic;
+
+    -- exposed and inverted AXI reset signal
+    reset_out     : out   std_logic;
 
     -- ADD USER PORTS ABOVE THIS LINE ------------------
 
@@ -220,6 +229,7 @@ architecture IMP of user_logic is
   constant CODE_SET_DATA    : integer := 2;
   constant CODE_PERFORM_OP  : integer := 3;
   constant CODE_CLEAR       : integer := 4;
+  constant CODE_PULSE       : integer := 5;
 
   -- used to synthesize a C_NUM_REG -> log_2(C_NUM_REG) encoder
   type encoder_type is array(C_NUM_REG downto 0)
@@ -249,21 +259,25 @@ architecture IMP of user_logic is
   -- clear value
   signal zero              : std_logic_vector(C_SLV_DWIDTH-1 downto 0);
 
+  -- keep the state of the outbound clock
+  signal out_clk           : std_logic;
+
 begin
 
   --USER logic implementation added here
 
   -- initialize
   zero <= (others => '0');
-  slv_read_ack(0)  <= '0';
-  slv_write_ack(0) <= '0';
+  slv_read_ack(0)  <= data_mode;
+  slv_write_ack(0) <= data_mode;
   write_address(0) <= 0;
   read_address(0)  <= 0;
 
-  -- Invert the meaning of the incoming reset signal
+  -- Invert the meaning of the incoming reset signal and expose it
   with Bus2IP_Resetn select reset <=
     '1' when '0',
     '0' when others;
+  reset_out <= reset;
 
   -- select mode, 0 is read, 1 is write
   with slv_read_ack(C_NUM_REG) select mode <=
@@ -331,14 +345,20 @@ begin
   -- | 2 | Set data          |
   -- | 3 | Perform operation |
   -- | 4 | Clear             |
+  -- | 5 | Pulse             |
   -- +---+-------------------+
   --
-  -- Note that AXI4-Lite(R) inputs are clock synced.
+  -- "Pulse" turns on an outbound clock
+  --
+  -- Note that AXI4-Lite(R) inputs are clock synced. Data read out to the
+  -- AXI4-Lite(R) bus, however, is async and on demand.
   ---
   UPDATE_SIDE_CHANNEL : process ( Bus2IP_Clk )
   is
   begin
-    if ( Bus2IP_Clk'event  and Bus2IP_Clk = '1' )
+
+    -- synch up writes on the high clock edge
+    CLOCK_SYNC : if ( Bus2IP_Clk'event  and Bus2IP_Clk = '1' )
     then
 
       -- use the incoming 5-bit address to decide how to handle software data
@@ -356,24 +376,32 @@ begin
         when CODE_CLEAR =>
           side_address <= zero;
           side_data_in <= zero;
+          out_clk <= '0';
+
+      -- send an outbound clock signal
+        when CODE_PULSE =>
+          out_clk <= '1' xor out_clk;
+          pulse <= out_clk;
 
       -- code not accounted for
         when others =>
           null;
+
       end case;
 
-      -- once a 32-bit address and software data have been set,
-      --  this is the signal to actually perform the desired operation
-      if    write_address(C_NUM_REG) = CODE_PERFORM_OP
-         or read_address(C_NUM_REG)  = CODE_PERFORM_OP
-      then
-        side_enable <= '1';
-      else
-        side_enable <= '0';
-      end if;
-
-    end if;
+    end if CLOCK_SYNC;
   end process UPDATE_SIDE_CHANNEL;
+
+  -- once a 32-bit address and software data have been set,
+  --  this is the signal to actually perform the desired operation
+  side_enable <=
+    '1' when
+      -- writes are clock sync
+      ( write_address(C_NUM_REG) = CODE_PERFORM_OP and Bus2IP_Clk = '1' )
+
+      -- reads are async
+      or read_address(C_NUM_REG)  = CODE_PERFORM_OP
+    else '0';
 
   ---
   -- Actual memory registers

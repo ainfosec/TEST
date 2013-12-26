@@ -62,7 +62,10 @@ PORT data_in = "", DIR = I, VEC = [C_SLV_DWIDTH*NUM_CHANNELS-1:0]
 PORT data_out = "", DIR = O, VEC = [C_SLV_DWIDTH*NUM_CHANNELS-1:0]
 PORT addresses= "", DIR = I, VEC = [C_SLV_DWIDTH*NUM_CHANNELS-1:0]
 PORT enables = "", DIR = I, VEC = [NUM_CHANNELS-1:0]
+PORT data_mode = "", DIR = I
 PORT rd_ack = "", DIR = O
 PORT wr_ack = "", DIR = O
+PORT pulse = "", DIR = O, SIGIS = CLK
+PORT reset_out = "", DIR = O, SIGIS = RST
 
 END

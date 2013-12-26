@@ -1,5 +1,5 @@
 ------------------------------------------------------------------------------
--- simple_processor_wrapper.vhd - entity/architecture pair
+-- edkregfile.vhd - entity/architecture pair
 ------------------------------------------------------------------------------
 -- IMPORTANT:
 -- DO NOT MODIFY THIS FILE EXCEPT IN THE DESIGNATED SECTIONS.
@@ -32,10 +32,10 @@
 -- ***************************************************************************
 --
 ------------------------------------------------------------------------------
--- Filename:          simple_processor_wrapper.vhd
+-- Filename:          edkregfile.vhd
 -- Version:           1.00.a
 -- Description:       Top level design, instantiates library components and user logic.
--- Date:              Tue Nov 26 13:09:49 2013 (by Create and Import Peripheral Wizard)
+-- Date:              Tue Dec 17 14:14:20 2013 (by Create and Import Peripheral Wizard)
 -- VHDL Standard:     VHDL'93
 ------------------------------------------------------------------------------
 -- Naming Conventions:
@@ -70,8 +70,8 @@ use proc_common_v3_00_a.soft_reset;
 library axi_lite_ipif_v1_01_a;
 use axi_lite_ipif_v1_01_a.axi_lite_ipif;
 
-library simple_processor_wrapper_v1_00_a;
-use simple_processor_wrapper_v1_00_a.user_logic;
+library edkregfile_v1_00_a;
+use edkregfile_v1_00_a.user_logic;
 
 ------------------------------------------------------------------------------
 -- Entity section
@@ -112,11 +112,17 @@ use simple_processor_wrapper_v1_00_a.user_logic;
 --   S_AXI_AWREADY                -- AXI4LITE slave: Wrte address ready
 ------------------------------------------------------------------------------
 
-entity simple_processor_wrapper is
+entity edkregfile is
   generic
   (
     -- ADD USER GENERICS BELOW THIS LINE ---------------
-    --USER generics added here
+
+    -- Number of real 32-bit addressable registers
+    NUM_REGS                       : integer              := 1024;
+
+    -- Number of clock controlled I/O channels exposed to other hardware
+    NUM_CHANNELS                   : integer              := 32;
+
     -- ADD USER GENERICS ABOVE THIS LINE ---------------
 
     -- DO NOT EDIT BELOW THIS LINE ---------------------
@@ -138,7 +144,31 @@ entity simple_processor_wrapper is
   port
   (
     -- ADD USER PORTS BELOW THIS LINE ------------------
-    --USER ports added here
+
+    -- Clock-controlled I/O channels which can be individually
+    --  enabled/disabled for reads and writes
+    data_in                        : in    std_logic_vector (
+        NUM_CHANNELS*C_SLV_DWIDTH-1 downto 0
+        );
+    data_out                       : out   std_logic_vector (
+        NUM_CHANNELS*C_SLV_DWIDTH-1 downto 0
+        );
+
+    -- Addresses for each I/O channel. Used by both reads and writes.
+    -- A read signal has priority over a write signal.
+    addresses                      : in    std_logic_vector (
+        NUM_CHANNELS*C_SLV_DWIDTH-1 downto 0
+        );
+
+    -- Read/Write enables for each I/O channel
+    enables                        : in    std_logic_vector (
+        NUM_CHANNELS-1 downto 0
+        );
+
+    -- hardware acks, reads or writes were performed
+    rd_ack        : out   std_logic;
+    wr_ack        : out   std_logic;
+
     -- ADD USER PORTS ABOVE THIS LINE ------------------
 
     -- DO NOT EDIT BELOW THIS LINE ---------------------
@@ -171,13 +201,13 @@ entity simple_processor_wrapper is
   attribute MAX_FANOUT of S_AXI_ARESETN       : signal is "10000";
   attribute SIGIS of S_AXI_ACLK       : signal is "Clk";
   attribute SIGIS of S_AXI_ARESETN       : signal is "Rst";
-end entity simple_processor_wrapper;
+end entity edkregfile;
 
 ------------------------------------------------------------------------------
 -- Architecture section
 ------------------------------------------------------------------------------
 
-architecture IMP of simple_processor_wrapper is
+architecture IMP of edkregfile is
 
   constant USER_SLV_DWIDTH                : integer              := C_S_AXI_DATA_WIDTH;
 
@@ -251,7 +281,43 @@ architecture IMP of simple_processor_wrapper is
   signal user_IP2Bus_WrAck              : std_logic;
   signal user_IP2Bus_Error              : std_logic;
 
+  signal tester_data                    : std_logic_vector(511 downto 0);
+  signal tester_enables                 : std_logic_vector(15 downto 0);
+
 begin
+
+  tester_data(511 downto 480) <= x"0000000E";
+  tester_data(479 downto 448) <= x"0000000F";
+  tester_data(447 downto 416) <= x"0000000D";
+  tester_data(415 downto 384) <= x"0000000C";
+  tester_data(383 downto 352) <= x"0000000B";
+  tester_data(351 downto 320) <= x"0000000A";
+  tester_data(319 downto 288) <= x"00000009";
+  tester_data(287 downto 256) <= x"00000008";
+  tester_data(255 downto 224) <= x"00000007";
+  tester_data(223 downto 192) <= x"00000006";
+  tester_data(191 downto 160) <= x"00000005";
+  tester_data(159 downto 128) <= x"00000004";
+  tester_data(127 downto 96)  <= x"00000003";
+  tester_data(95  downto 64)  <= x"00000002";
+  tester_data(63  downto 32)  <= x"00000001";
+  tester_data(31  downto 0)   <= x"00000000";
+  tester_enables(15) <= '1';
+  tester_enables(14) <= '1';
+  tester_enables(13) <= '0';
+  tester_enables(12) <= '0';
+  tester_enables(11) <= '1';
+  tester_enables(10) <= '1';
+  tester_enables(9)  <= '0';
+  tester_enables(8)  <= '0';
+  tester_enables(7)  <= '1';
+  tester_enables(6)  <= '1';
+  tester_enables(5)  <= '0';
+  tester_enables(4)  <= '0';
+  tester_enables(3)  <= '1';
+  tester_enables(2)  <= '1';
+  tester_enables(1)  <= '0';
+  tester_enables(0)  <= '0';
 
   ------------------------------------------
   -- instantiate axi_lite_ipif
@@ -329,11 +395,12 @@ begin
   ------------------------------------------
   -- instantiate User Logic
   ------------------------------------------
-  USER_LOGIC_I : entity simple_processor_wrapper_v1_00_a.user_logic
+  USER_LOGIC_I : entity edkregfile_v1_00_a.user_logic
     generic map
     (
       -- MAP USER GENERICS BELOW THIS LINE ---------------
-      --USER generics mapped here
+      NUM_REGS                       => NUM_REGS,
+      NUM_CHANNELS                   => NUM_CHANNELS,
       -- MAP USER GENERICS ABOVE THIS LINE ---------------
 
       C_NUM_REG                      => USER_NUM_REG,
@@ -342,7 +409,15 @@ begin
     port map
     (
       -- MAP USER PORTS BELOW THIS LINE ------------------
-      --USER ports mapped here
+--      data_in                        => data_in,
+      data_in                        => tester_data,
+      data_out                       => data_out,
+--      addresses                      => addresses,
+      addresses                      => tester_data,
+--      enables                        => enables,
+      enables                        => tester_enables,
+      rd_ack                         => rd_ack,
+      wr_ack                         => wr_ack,
       -- MAP USER PORTS ABOVE THIS LINE ------------------
 
       Bus2IP_Clk                     => ipif_Bus2IP_Clk,
@@ -380,4 +455,5 @@ begin
 
   ipif_Bus2IP_Reset <= not ipif_Bus2IP_Resetn;
   rst_Bus2IP_Reset_tmp <= not rst_Bus2IP_Reset;
+
 end IMP;

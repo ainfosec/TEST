@@ -19,12 +19,8 @@ package states is
   constant DO_ALU_INPUT         : integer          := 5;
   constant DO_MATH              : integer          := 6;
   constant DO_LOAD_STORE        : integer          := 7;
-  constant DO_SOFT_READ         : integer          := 8;
-  constant DO_SOFT_WRITE        : integer          := 9;
-  constant DO_DECODE_SOFT_READ  : integer          := 10;
-  constant DO_DECODE_SOFT_WRITE : integer          := 11;
-  constant DO_CLEAR_FLAGS       : integer          := 12;
-  constant STATE_MAX            : integer          := 12;
+  constant DO_CLEAR_FLAGS       : integer          := 8;
+  constant STATE_MAX            : integer          := 8;
 
 end package states;
 

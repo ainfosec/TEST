@@ -14,9 +14,9 @@ use ieee.numeric_std.all;
 library proc_common_v3_00_a;
 use proc_common_v3_00_a.proc_common_pkg.all;
 
-library simple_processor_wrapper_v1_00_a;
-use simple_processor_wrapper_v1_00_a.opcodes.all;
-use simple_processor_wrapper_v1_00_a.reg_file_constants.all;
+library simple_processor_v1_00_a;
+use simple_processor_v1_00_a.opcodes.all;
+use simple_processor_v1_00_a.reg_file_constants.all;
 
 ---
 -- Selects 2 inputs based on a decoded 16 bit ARM Thumb opcode,

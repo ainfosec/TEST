@@ -2,7 +2,7 @@
 -- Version:           1.00.a
 -- Description:       Simple ARM Thumb(R) processor
 -- Date Created:      Wed, Nov 13, 2013 20:59:21
--- Last Modified:     Fri, Dec 06, 2013 00:24:53
+-- Last Modified:     Thu, Dec 19, 2013 23:53:13
 -- VHDL Standard:     VHDL'93
 -- Author:            Sean McClain <mcclains@ainfosec.com>
 -- Copyright:         (c) 2013 Assured Information Security, All Rights Reserved
@@ -16,14 +16,14 @@ use proc_common_v3_00_a.proc_common_pkg.all;
 use proc_common_v3_00_a.ipif_pkg.all;
 use proc_common_v3_00_a.soft_reset;
 
-library simple_processor_wrapper_v1_00_a;
-use simple_processor_wrapper_v1_00_a.alu;
-use simple_processor_wrapper_v1_00_a.decoder;
-use simple_processor_wrapper_v1_00_a.reg_file;
-use simple_processor_wrapper_v1_00_a.state_machine;
-use simple_processor_wrapper_v1_00_a.opcodes.all;
-use simple_processor_wrapper_v1_00_a.states.all;
-use simple_processor_wrapper_v1_00_a.reg_file_constants.all;
+library simple_processor_v1_00_a;
+use simple_processor_v1_00_a.alu;
+use simple_processor_v1_00_a.decoder;
+use simple_processor_v1_00_a.reg_file;
+use simple_processor_v1_00_a.state_machine;
+use simple_processor_v1_00_a.opcodes.all;
+use simple_processor_v1_00_a.states.all;
+use simple_processor_v1_00_a.reg_file_constants.all;
 
 ---
 -- A single instruction ARM Thumb(R) processor with no flow control
@@ -31,22 +31,8 @@ use simple_processor_wrapper_v1_00_a.reg_file_constants.all;
 ---
 entity simple_processor
 is
-  generic
-  (
-    -- number of registers addressable by external peripheral
-    ADDR_SPACE              : integer          := 32
-  );
   port
   (
-    -- for communicating with an external peripheral
-    extern_trigger          : in    std_logic;
-    soft_addr_w             : in    std_logic_vector(ADDR_SPACE-1 downto 0);
-    soft_addr_r             : in    std_logic_vector(ADDR_SPACE-1 downto 0);
-    soft_data_w             : in    std_logic_vector(DATA_WIDTH-1 downto 0);
-    soft_data_r             : out   std_logic_vector(DATA_WIDTH-1 downto 0);
-    ack_read                : out   std_logic;
-    ack_write               : out   std_logic;
-
     -- clock and reset
     Clk                     : in    std_logic;
     Reset                   : in    std_logic
@@ -71,8 +57,6 @@ is
   signal load_ack            : std_logic;
   signal math_ack            : std_logic;
   signal store_ack           : std_logic;
-  signal soft_read_ack       : std_logic;
-  signal soft_write_ack      : std_logic;
   signal decode_r_ack        : std_logic;
   signal decode_w_ack        : std_logic;
 
@@ -144,7 +128,7 @@ begin
   ---
   -- Triggers all processor events in order
   ---
-  STATE_MACHINE_I : entity simple_processor_wrapper_v1_00_a.state_machine
+  STATE_MACHINE_I : entity simple_processor_v1_00_a.state_machine
     generic map
     (
       SOFT_ADDRESS_WIDTH     => ADDR_SPACE
@@ -158,14 +142,6 @@ begin
       load_ack               => load_ack,
       math_ack               => math_ack,
       store_ack              => store_ack,
-      soft_read_ack          => soft_read_ack,
-      soft_write_ack         => soft_write_ack,
-      decode_r_ack           => decode_r_ack,
-      decode_w_ack           => decode_w_ack,
-      soft_addr_r            => soft_addr_r,
-      soft_addr_w            => soft_addr_w,
-      axi_read_ack           => ack_read,
-      axi_write_ack          => ack_write,
       state                  => state,
       Clk                    => Clk,
       Reset                  => Reset
@@ -174,7 +150,7 @@ begin
   ---
   -- Register file, containing both registers and data memory
   ---
-  REG_FILE_I : entity simple_processor_wrapper_v1_00_a.reg_file
+  REG_FILE_I : entity simple_processor_v1_00_a.reg_file
     generic map
     (
       SOFT_ADDRESS_WIDTH     => ADDR_SPACE
@@ -197,10 +173,6 @@ begin
       flag_z                 => flag_z,
       flag_c                 => flag_c,
       flag_v                 => flag_v,
-      soft_addr_r            => soft_addr_r,
-      soft_addr_w            => soft_addr_w,
-      soft_data_in           => soft_data_w,
-      soft_data_out          => soft_data_r,
       instruction            => raw_instruction,
       reg_file_reset_ack     => reg_file_reset_ack,
       send_inst_ack          => send_inst_ack,
@@ -236,7 +208,7 @@ begin
   -- Selects 2 register file outputs to send into the ALU,
   --  and selects which write enables are on in the register file
   ---
-  MUXER_I : entity simple_processor_wrapper_v1_00_a.muxer
+  MUXER_I : entity simple_processor_v1_00_a.muxer
     port map
     (
       opcode                 => opcode,
@@ -268,7 +240,7 @@ begin
   ---
   -- ARM Thumb(R) decoder
   ---
-  DECODER_I : entity simple_processor_wrapper_v1_00_a.decoder
+  DECODER_I : entity simple_processor_v1_00_a.decoder
     port map
     (
       data                   => raw_instruction,
@@ -292,7 +264,7 @@ begin
   ---
   -- Arithmetic Logical Unit
   ---
-  ALU_I : entity simple_processor_wrapper_v1_00_a.alu
+  ALU_I : entity simple_processor_v1_00_a.alu
     port map
     (
       a                      => alu_a,

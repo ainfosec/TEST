@@ -120,17 +120,19 @@ package reg_file_constants is
   constant MEMIO_RNPLUSOFF   : integer := 3;
   constant MEMIO_RMPLUSRN    : integer := 4;
   constant MEMIO_RMHHREG     : integer := 5;
-  constant MEMIO_RDHREG      : integer := 5;
-  constant MEMIO_RMHLREG     : integer := 6;
-  constant MEMIO_RNHHREG     : integer := 7;
-  constant MEMIO_RNHLREG     : integer := 8;
-  constant MEMIO_RMREG       : integer := 9;
-  constant MEMIO_RNREG       : integer := 10;
-  constant MEMIO_RSREG       : integer := 11;
-  constant MEMIO_RDREG       : integer := 12;
-  constant MEMIO_SPREG       : integer := 13;
-  constant MEMIO_PCREG       : integer := 14;
-  constant MEMIO_LRREG       : integer := 15;
+  constant MEMIO_RDHREG      : integer := 6;
+  constant MEMIO_RMHLREG     : integer := 7;
+  constant MEMIO_RNHHREG     : integer := 8;
+  constant MEMIO_RNHLREG     : integer := 9;
+  constant MEMIO_RMREG       : integer := 10;
+  constant MEMIO_RNREG       : integer := 11;
+  constant MEMIO_RSREG       : integer := 12;
+  constant MEMIO_RDREG       : integer := 13;
+  constant MEMIO_SPREG       : integer := 14;
+  constant MEMIO_PCREG       : integer := 15;
+  constant MEMIO_LRREG       : integer := 16;
+  constant MEMIO_INSTR_REG   : integer := 17;
+  constant MEMIO_N_CHANNELS  : integer := 18;
 
   -- 4-byte or 8-byte word-addressable memory
   type regs_type is array(NUM_REGS-1 downto 0)

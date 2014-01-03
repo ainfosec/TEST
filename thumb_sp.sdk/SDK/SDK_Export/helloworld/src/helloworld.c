@@ -1,7 +1,6 @@
 /**
  * @file hello_world.c
- * @description Takes no prisoners and no shit from anyone.
- *              Does however take your mom.
+ * @description 
  */
 
 #include <stdio.h>

@@ -1,0 +1,325 @@
+2013-12-26  Sean McClain  <mcclains@ainfosec.com>
+
+	* helloworld/src/helloworld.c (main) :
+	  added edkregfile's channel clear to test function
+
+	* edkregfile_v1_00_a/data/edkregfile_v2_1_0.mpd :
+	  added data_mode, pulse, and reset_out signals
+
+	* edkregfile_v1_00_a/hdl/vhdl/edkregfile.vhd :
+	  added a software controlled clock and reset signal (pulse
+	  and reset_out), added a data_mode signal to allow other hardware
+	  to select reads/writes, removed testbench/debug signals
+
+	* edkregfile_v1_00_a/hdl/vhdl/memory.vhd :
+	  created, holds actual memory registers instead of user_logic
+
+	* edkregfile_v1_00_a/hdl/vhdl/user_logic.vhd :
+	  using data_mode signal, wrapping memory part
+
+	* simple_processor_v1_00_a/data/simple_processor_v2_1_0.mpd :
+	  removed EDK generated signals
+
+	* simple_processor_v1_00_a/data/simple_processor_v2_1_0.pao :
+	  removed EDK generated signals and signals handled now by edkregfile
+
+	* simple_processor_wrapper_v1_00_a/hdl/vhdl/alu.vhd :
+	  no longer using external zero
+
+	* simple_processor_wrapper_v1_00_a/hdl/vhdl/decoder.vhd :
+	  no longer sending external zero
+
+	* simple_processor_wrapper_v1_00_a/hdl/vhdl/reg_file.vhd :
+	  added edkregfile communications channels, removed dead ack
+	  signals, doing pointer calc in variables to enable abstracting
+	  away some logic, relying on edkregfile for functionality previously
+	  provided by memory part
+
+	* simple_processor_wrapper_v1_00_a/hdl/vhdl/reg_file_constants.vhd :
+	  set up to use 16 channel I/O edkregfile interface
+
+	* simple_processor_wrapper_v1_00_a/hdl/vhdl/simple_processor.vhd :
+	  set up to use 16 channel I/O edkregfile interface
+
+	* simple_processor_wrapper_v1_00_a/hdl/vhdl/state_machine.vhd :
+	  removed dead ports previously used for EDK I/O
+
+2013-12-17  Sean McClain  <mcclains@ainfosec.com>
+
+	* hi/src/helloworld.c (main) :
+	  renamed to helloworld/src/helloworld.c, DUT now edkregfile
+
+	* hi/src/pl_dev_driver.h (main) :
+	  renamed to helloworld/src/pl_dev_driver.h
+
+	* edkregfile_v1_00_a/data/edkregfile_v2_1_0.mpd :
+	  created
+
+	* edkregfile_v1_00_a/data/edkregfile_v2_1_0.pao :
+	  created
+
+	* edkregfile_v1_00_a/hdl/vhdl/edkregfile.vhd :
+	  created
+
+	* edkregfile_v1_00_a/hdl/vhdl/user_logic.vhd :
+	  created
+
+	* simple_processor_wrapper_v1_00_a/data/simple_processor_wrapper_v2_1_0.mpd :
+	  renamed simple_processor_wrapper -> simple_processor
+
+	* simple_processor_wrapper_v1_00_a/data/simple_processor_wrapper_v2_1_0.pao :
+	  renamed simple_processor_wrapper -> simple_processor
+
+	* simple_processor_wrapper_v1_00_a/hdl/vhdl/alu.vhd :
+	  renamed simple_processor_wrapper -> simple_processor
+
+	* simple_processor_wrapper_v1_00_a/hdl/vhdl/decoder.vhd :
+	  renamed simple_processor_wrapper -> simple_processor
+
+	* simple_processor_wrapper_v1_00_a/hdl/vhdl/muxer.vhd :
+	  renamed simple_processor_wrapper -> simple_processor
+
+	* simple_processor_wrapper_v1_00_a/hdl/vhdl/opcodes.vhd :
+	  renamed simple_processor_wrapper -> simple_processor
+
+	* simple_processor_wrapper_v1_00_a/hdl/vhdl/reg_file.vhd :
+	  renamed simple_processor_wrapper -> simple_processor
+
+	* simple_processor_wrapper_v1_00_a/hdl/vhdl/reg_file_constants.vhd :
+	  renamed simple_processor_wrapper -> simple_processor
+
+	* simple_processor_wrapper_v1_00_a/hdl/vhdl/simple_processor.vhd :
+	  renamed simple_processor_wrapper -> simple_processor
+
+	* simple_processor_wrapper_v1_00_a/hdl/vhdl/state_machine.vhd :
+	  renamed simple_processor_wrapper -> simple_processor
+
+	* simple_processor_wrapper_v1_00_a/hdl/vhdl/states.vhd :
+	  renamed simple_processor_wrapper -> simple_processor
+
+	* simple_processor_wrapper_v1_00_a/hdl/vhdl/state_machine_wrapper.vhd :
+	  deleted
+
+	* simple_processor_wrapper_v1_00_a/hdl/vhdl/user_logic.vhd :
+	  deleted
+
+2013-12-13  Sean McClain  <mcclains@ainfosec.com>
+
+	* hi/src/helloworld.c (main) :
+	  changed test data
+
+	* simple_processor_wrapper_v1_00_a/hdl/vhdl/memory.vhd :
+	  modified testbench/development code to be compatible with
+	  EDK I/O
+
+	* simple_processor_wrapper_v1_00_a/hdl/vhdl/memory.vhd :
+	  added acknowledgement signals for the state machine handling
+	  EDK I/O, fixed timing with EDK I/O
+
+	* simple_processor_wrapper_v1_00_a/hdl/vhdl/simple_processor.vhd :
+	  added acknowledgement signals for the state machine handling
+	  EDK I/O
+
+	* simple_processor_wrapper_v1_00_a/hdl/vhdl/state_machine.vhd :
+	  added acknowledgement signals for the state machine handling
+	  EDK I/O, fixed timing with EDK I/O
+
+	* simple_processor_wrapper_v1_00_a/hdl/vhdl/states.vhd :
+	  added acknowledgement signals for the state machine handling
+	  EDK I/O
+
+2013-12-10  Sean McClain  <mcclains@ainfosec.com>
+
+	* hi/src/helloworld.c (main) :
+	  testing register 4 instead of register 10
+
+	* simple_processor_wrapper_v1_00_a/hdl/vhdl/memory.vhd :
+	  modified to allow faster netlist generation and silicon compile
+
+	* simple_processor_wrapper_v1_00_a/hdl/vhdl/reg_file.vhd :
+	  fixed pointer ranges, fixed I/O with memory part
+
+	* simple_processor_wrapper_v1_00_a/hdl/vhdl/reg_file_constants.vhd :
+	  fixed ARM mode registers
+
+	* simple_processor_wrapper_v1_00_a/hdl/vhdl/user_logic.vhd :
+	  commented out dead EDK generated code
+
+2013-12-06  Sean McClain  <mcclains@ainfosec.com>
+
+	* simple_processor_wrapper_v1_00_a/data/simple_processor_wrapper_v2_1_0.pao :
+	  added reg_file_constants, memory, and muxer parts
+
+	* simple_processor_wrapper_v1_00_a/hdl/vhdl/alu.vhd :
+	  fixed some math functions with sign-extended variabled and
+	  a 64 bit buffer, using reg_file_constants include, using a
+	  write enable signal for the register file
+
+	* simple_processor_wrapper_v1_00_a/hdl/vhdl/decoder.vhd :
+	  no longer passing op_type grouping to reg_file
+
+	* simple_processor_wrapper_v1_00_a/hdl/vhdl/memory.vhd :
+	  created to store all register and data memory and separate
+	  it from higher level reg_file functionality
+
+	* simple_processor_wrapper_v1_00_a/hdl/vhdl/memory.vhd :
+	  created to select inputs and take responsibility away from reg_file
+
+	* simple_processor_wrapper_v1_00_a/hdl/vhdl/opcodes.vhd :
+	  some operations renamed for consistency and predictability,
+	  many constants moved to reg_file_constants
+
+	* simple_processor_wrapper_v1_00_a/hdl/vhdl/reg_file.vhd :
+	  no longer receiving op_type grouping from decoder, NUM_REGS
+	  and DATA_WIDTH are defined in reg_file_constants now, no longer
+	  receiving zero buffer from decoder, added write enable from
+	  ALU, no longer storing registers and data memory directly, no
+	  longer responsible for selecting ALU inputs, sending every currently
+	  accessible register into muxer, sending pointer information
+	  out to muxer, most constants moved to reg_file_constants
+
+	* simple_processor_wrapper_v1_00_a/hdl/vhdl/reg_file_constants.vhd :
+	  created
+
+	* simple_processor_wrapper_v1_00_a/hdl/vhdl/simple_processor.vhd :
+	  using constants from states and reg_file_constants, NUM_REGS
+	  and DATA_WIDTH are defined in reg_file_constants now, modified
+	  reg file -> alu pipe to reg file -> muxer -> alu
+
+	* simple_processor_wrapper_v1_00_a/hdl/vhdl/state_machine.vhd :
+	  state variable now uses a range
+
+	* simple_processor_wrapper_v1_00_a/hdl/vhdl/states.vhd :
+	  state variable now uses a range
+
+	* simple_processor_wrapper_v1_00_a/hdl/vhdl/user_logic.vhd :
+	  NUM_REGS and DATA_WIDTH are defined in reg_file_constants now
+
+2013-11-26  Sean McClain  <mcclains@ainfosec.com>
+
+	* hi/src/helloworld.c (main) :
+	  renamed to perform I/O through an EDK wrapper
+
+	* hi/src/pl_dev_driver.h (main) :
+	  worked around xparameters.h not being automatically updated
+	  by EDK
+
+	* simple_processor_v1_00_a/data/simple_processor_v2_1_0.mpd :
+	  renamed to simple_processor -> simple_processor_wrapper
+
+	* simple_processor_v1_00_a/data/simple_processor_v2_1_0.pao :
+	  renamed to simple_processor -> simple_processor_wrapper
+
+	* simple_processor_wrapper_v1_00_a/data/simple_processor_wrapper_v2_1_0.pao :
+	  added all simple_processor subcomponents and includes
+
+	* simple_processor_v1_00_a/hdl/vhdl/alu.vhd :
+	  renamed to simple_processor -> simple_processor_wrapper
+
+	* simple_processor_wrapper_v1_00_a/hdl/vhdl/alu.vhd :
+	  whitespace and formatting changes
+
+	* simple_processor_v1_00_a/hdl/vhdl/decoder.vhd :
+	  renamed to simple_processor -> simple_processor_wrapper
+
+	* simple_processor_wrapper_v1_00_a/hdl/vhdl/decoder.vhd :
+	  whitespace and formatting changes
+
+	* simple_processor_v1_00_a/hdl/vhdl/opcodes.vhd :
+	  renamed to simple_processor -> simple_processor_wrapper
+
+	* simple_processor_v1_00_a/hdl/vhdl/reg_file.vhd :
+	  renamed to simple_processor -> simple_processor_wrapper
+
+	* simple_processor_wrapper_v1_00_a/hdl/vhdl/decoder.vhd :
+	  simplified the way register offsets are calculated, modified
+	  acknowledgement signals to be compatible with wrapper
+
+	* simple_processor_wrapper_v1_00_a/hdl/vhdl/decoder.vhd (DO_TRIGGER_READ) :
+	  removed
+
+	* simple_processor_v1_00_a/hdl/vhdl/simple_processor.vhd :
+	  renamed to simple_processor -> simple_processor_wrapper
+
+	* simple_processor_wrapper_v1_00_a/hdl/vhdl/simple_processor.vhd :
+	  modified state machine interface to include EDK software I/O
+
+	* simple_processor_v1_00_a/hdl/vhdl/state_machine.vhd :
+	  renamed to simple_processor -> simple_processor_wrapper
+
+	* simple_processor_wrapper_v1_00_a/hdl/vhdl/state_machine.vhd :
+	  modified state machine interface to include EDK software I/O
+
+	* simple_processor_v1_00_a/hdl/vhdl/states.vhd :
+	  renamed to simple_processor -> simple_processor_wrapper
+
+	* simple_processor_wrapper_v1_00_a/hdl/vhdl/states.vhd :
+	  renamed DO_LOAD -> DO_ALU_INPUT and DO_STORE -> DO_LOAD_STORE
+
+	* simple_processor_v1_00_a/hdl/vhdl/user_logic.vhd :
+	  renamed to simple_processor -> simple_processor_wrapper
+
+	* simple_processor_wrapper_v1_00_a/hdl/vhdl/user_logic.vhd :
+	  wrapping SIMPLE_PROCESSOR_I
+
+2013-11-22  Sean McClain  <mcclains@ainfosec.com>
+
+	* hi/src/helloworld.c (main) :
+	  created simple test routine
+
+	* simple_processor_v1_00_a/hdl/vhdl/alu.vhd (DO_UPDATE) :
+	  created and used a state machine event for clearing acknowledgement
+	  signals
+
+	* simple_processor_v1_00_a/hdl/vhdl/decoder.vhd (DATA_DECODER) :
+	  created and used a state machine event for clearing acknowledgement
+	  signals
+
+	* simple_processor_v1_00_a/hdl/vhdl/reg_file.vhd (DO_LOAD_PROC) :
+	  renamed process to DO_UPDATE
+
+	* simple_processor_v1_00_a/hdl/vhdl/reg_file.vhd (DO_STORE_PROC) :
+	  absorbed process into DO_UPDATE
+
+	* simple_processor_v1_00_a/hdl/vhdl/reg_file.vhd (DO_UPDATE) :
+	  created and used a state machine event for clearing acknowledgement
+	  signals, added default instruction and bounce prevention,
+	  set memory contents to debug values on reset
+
+	* simple_processor_v1_00_a/hdl/vhdl/state_machine.vhd (DO_UPDATE) :
+	  added DO_CLEAR_FLAGS state
+
+2013-11-10  Sean McClain  <mcclains@ainfosec.com>
+
+	* simple_processor_v1_00_a/data/simple_processor_v2_1_0.mpd :
+	  created
+
+	* simple_processor_v1_00_a/data/simple_processor_v2_1_0.pao :
+	  created
+
+	* simple_processor_v1_00_a/hdl/vhdl/alu.vhd :
+	  created
+
+	* simple_processor_v1_00_a/hdl/vhdl/decoder.vhd :
+	  created
+
+	* simple_processor_v1_00_a/hdl/vhdl/opcodes.vhd :
+	  created
+
+	* simple_processor_v1_00_a/hdl/vhdl/reg_file.vhd :
+	  created
+
+	* simple_processor_v1_00_a/hdl/vhdl/simple_processor.vhd :
+	  created
+
+	* simple_processor_v1_00_a/hdl/vhdl/state_machine.vhd :
+	  created
+
+	* simple_processor_v1_00_a/hdl/vhdl/states.vhd :
+	  created
+
+	* hi/src/helloworld.c :
+	  created
+
+	* hi/src/pl_dev_driver.h :
+	  created

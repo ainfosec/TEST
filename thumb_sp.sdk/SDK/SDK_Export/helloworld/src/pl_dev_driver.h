@@ -27,7 +27,7 @@ typedef enum _PL_DEV_IRQS
 #define PL_DEV_SOFT_RESET (0x0000000A)
 
 /**
- * Write a value to a TEE_CONTROLLER register. A 32 bit write is performed.
+ * Write a value to a peripheral register. A 32 bit write is performed.
  * If the component is implemented in a smaller width, only the least
  * significant data is written.
  *
@@ -41,7 +41,7 @@ typedef enum _PL_DEV_IRQS
 
 /**
  *
- * Read a value from a TEE_CONTROLLER register. A 32 bit read is performed.
+ * Read a value from a peripheral register. A 32 bit read is performed.
  * If the component is implemented in a smaller width, only the least
  * significant data is read from the register. The most significant data
  * will be read as 0.

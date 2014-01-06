@@ -1,0 +1,25 @@
+PS/PL I/O to send an instruction to, and retrieve from, the processor:
+
+reset mem
+waddress: instruction
+data: instruction
+perform task
+clear channels
+turn pulse on
+perform task
+the processor will trip an interrupt when it completes
+turn pulse off
+perform task
+clear channels
+raddress: Rd
+perform task
+clear channels
+
+Once instructions are successfully performed, the software_stack needs to
+  be imported
+
+Once the software stack is imported, the ARM Thumb compiler needs to be
+  implemented
+
+A critical section part, which switches between asynchronous
+ and synchronous input from both PS and PL, needs to be created.

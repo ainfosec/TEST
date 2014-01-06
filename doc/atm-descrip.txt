@@ -1,0 +1,105 @@
+ATM:
+* screens:
+* * welcome screen
+* * pin request screen
+* * options screen
+* * withdrawal screen
+* * deposit screen
+* * balance screen
+* * fast cash <amt> screen
+* * atm fee screen
+* * ask for receipt screen
+* * take money screen
+* * take receipt screen
+* * ask for another transaction screen
+* * error screen
+* I/O:
+* * input : switches
+* * output : LEDS, UART
+* * switches and LEDS blocked during all ATM <-> Server transactions
+* * UART blocked whenever switches and LEDS are active
+
+Welcome Screen:
+* wait for user to slide card
+* info extracted to card
+* machine calls bank
+* info retrieved from bank
+* transfer to pin request screen
+
+PIN Request Screen:
+* user provides pin
+* card, bank, and pin info used to authenticate
+* if auth bad, transfer to error screen
+* transfer to options screen
+
+Options Screen:
+* select and transfer to one of the following:
+* * withdrawal screen
+* * deposit screen
+* * balance screen
+* * fast cash <amt> screen
+
+Withdrawal Screen:
+* select an amount
+* select an account
+* transfer to atm fee screen
+
+Deposit Screen:
+* select an amount
+* select an account
+* wait for the user to deposit an envelope
+* send information to the bank
+* transfer to ask for receipt screen
+
+Balance Screen:
+* select an account
+* display the balance
+* transfer to ask for another transaction screen
+
+ATM Fee Screen:
+* ask the user if they want to pay the fee
+* if no, transfer to ask for another transaction screen
+* send information to the bank
+* transfer to ask for receipt screen
+
+Ask for Receipt Screen:
+* ask the user if they would like a receipt
+* if yes, print a receipt
+* transfer to ask for another transaction screen
+
+Ask for Another Transaction Screen:
+* ask the user if they would like to complete another transaction
+* if yes, transfer to pin request screen
+* transfer to welcome screen
+
+Error screen:
+* display an error message
+* transfer to welcome screen
+
+Server:
+* account : [0-15] x 64
+* * ID : [0-3]
+* * checking : [4-7]
+* * savings : [8-11]
+* * pin : [12-15]
+* auth: ID, pin
+* * account ID -> R1
+* * sent in ID -> R2
+* * compare
+* * account PIN -> R1
+* * send in PIN -> R2
+* * compare
+* modify checking or savings: signed integer
+* * checking or savings amount -> R1
+* * add sent in amount
+* * R1 -> checking or savings amount
+* I/O:
+* * AXI through gate
+
+Attack:
+* Goal: get data to silently be sent out UART
+* Method: add a key "at bootup" which has UART + LED permissions
+
+Defense:
+* Attached device shows active key status to administrator at all times
+* Instruction randomization + UART must have auth in a register to turn on

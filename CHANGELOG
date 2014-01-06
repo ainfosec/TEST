@@ -1,3 +1,11 @@
+2014-01-03  Sean McClain  <mcclains@ainfosec.com>
+
+	* simple_processor_v1_00_a/data/simple_processor_v2_1_0.mpd :
+	  removed an EDK generated constant
+
+	* simple_processor_wrapper_v1_00_a/hdl/vhdl/reg_file.vhd :
+	  bugfix: structural style code in a procedure
+
 2013-12-26  Sean McClain  <mcclains@ainfosec.com>
 
 	* helloworld/src/helloworld.c (main) :

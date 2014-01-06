@@ -159,9 +159,19 @@ begin
     -- pre-calculate in-bounds addresses
     if state = DO_ALU_INPUT or state = DO_LOAD_STORE
     then
-      flags_hh_u(3) := '1' when flags_h(1) = '1' else '0';
+      if flags_h(1) = '1'
+      then
+        flags_hh_u(3) := '1';
+      else
+        flags_hh_u(3) := '0';
+      end if;
       flags_hh_u(2 downto 0) := (others => '0');
-      flags_hl_u(3) := '1' when flags_h(0) = '1' else '0';
+      if flags_h(0) = '1'
+      then
+        flags_hl_u(3) := '1';
+      else
+        flags_hl_u(3) := '0';
+      end if;
       flags_hl_u(2 downto 0) := (others => '0');
       rm_reg_i      := to_integer(unsigned(Rm));
       rn_reg_i      := to_integer(unsigned(Rn));
@@ -192,7 +202,7 @@ begin
     end if;
 
     -- initialize memory
-    if    state = DO_REG_FILE_RESET
+    STATE_SELECT : if state = DO_REG_FILE_RESET
     then
 
       -- write to memory

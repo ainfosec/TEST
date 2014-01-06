@@ -17,7 +17,6 @@ OPTION DESC = EDKREGFILE
 OPTION LONG_DESC = A Xilinx EDK(R) compatible register file utilizing a true 32 bit address space, with clocked and enable controlled I/O, which 32 32-bit enable controlled and clocked I/O channels for communicating with other hardware.
 OPTION ARCH_SUPPORT_MAP = (others=DEVELOPMENT)
 
-
 ## Bus Interfaces
 BUS_INTERFACE BUS = S_AXI, BUS_STD = AXI, BUS_TYPE = SLAVE
 

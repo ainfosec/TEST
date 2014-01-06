@@ -112,27 +112,24 @@ begin
     -- set ack signals
     with channel_enable(chan)(3 downto 0) select rd_ack_search(chan+1) <=
       '1' when "0110",
-      '1' when "0111",
       rd_ack_search(chan) when others;
     with channel_enable(chan)(3 downto 0) select wr_ack_search(chan+1) <=
       '1' when "1110",
-      '1' when "1111",
       wr_ack_search(chan) when others;
 
   end generate DO_ACKS;
 
   -- do the same with side channel acks
+  channel_enable(NUM_CHANNELS)(DATA_WIDTH-1 downto 4) <= (others => '0');
   channel_enable(NUM_CHANNELS)(3 downto 0) <=
     mode & side_enable & clock & reset;
   with channel_enable(NUM_CHANNELS)(3 downto 0)
   select rd_ack_search(NUM_CHANNELS+1) <=
     '1' when "0110",
-    '1' when "0111",
     rd_ack_search(NUM_CHANNELS) when others;
   with channel_enable(NUM_CHANNELS)(3 downto 0)
   select wr_ack_search(NUM_CHANNELS+1) <=
     '1' when "1110",
-    '1' when "1111",
     wr_ack_search(NUM_CHANNELS) when others;
 
   -- send out OR'ed together acks
@@ -147,21 +144,21 @@ begin
     variable address : integer;
   begin
 
+    -- reset requested, clear memory
+    if reset = '1'
+    then
+      for chan in NUM_CHANNELS-1 downto 0
+      loop
+        data_out(DATA_WIDTH*(chan+1)-1 downto DATA_WIDTH*chan) <= zero;
+      end loop;
+      side_data_out <= zero;
+
     -- read op requested
-    if rd_ack_search(NUM_CHANNELS+1) = '1'
+    elsif rd_ack_search(NUM_CHANNELS+1) = '1'
     then
 
-      -- reset requested, clear memory
-      if reset = '1'
-      then
-        for chan in NUM_CHANNELS-1 downto 0
-        loop
-          data_out(DATA_WIDTH*(chan+1)-1 downto DATA_WIDTH*chan) <= zero;
-        end loop;
-        side_data_out <= zero;
-
       -- read to side channel
-      elsif channel_enable(NUM_CHANNELS)(3 downto 0) = "0110"
+      if channel_enable(NUM_CHANNELS)(3 downto 0) = "0110"
       then
         address := to_integer(unsigned(side_address));
         side_data_out <= mem(address);
@@ -175,6 +172,13 @@ begin
             address := to_integer (unsigned (
                 addresses(DATA_WIDTH*(chan+1)-1 downto DATA_WIDTH*chan)
                 ));
+            if    address < 0
+            then
+              address := 0;
+            elsif address > NUM_REGS or address = NUM_REGS
+            then
+              address := NUM_REGS-1;
+            end if;
             data_out(DATA_WIDTH*(chan+1)-1 downto DATA_WIDTH*chan) <=
               mem(address);
           end if;
@@ -193,20 +197,20 @@ begin
     variable address : integer;
   begin
 
+    -- reset requested, clear memory
+    if reset = '1'
+    then
+      for reg in NUM_REGS-1 downto 0
+      loop
+        mem(reg) <= zero;
+      end loop;
+
     -- write op requested
-    if wr_ack_search(NUM_CHANNELS+1) = '1'
+    elsif wr_ack_search(NUM_CHANNELS+1) = '1'
     then
 
-      -- reset requested, clear memory
-      if reset = '1'
-      then
-        for reg in NUM_REGS-1 downto 0
-        loop
-          mem(reg) <= zero;
-        end loop;
-
       -- write from side channel
-      elsif channel_enable(NUM_CHANNELS)(3 downto 0) = "1110"
+      if channel_enable(NUM_CHANNELS)(3 downto 0) = "1110"
       then
         address := to_integer(unsigned(side_address));
         mem(address) <= side_data_in;
@@ -220,6 +224,13 @@ begin
             address := to_integer (unsigned (
                 addresses(DATA_WIDTH*(chan+1)-1 downto DATA_WIDTH*chan)
                 ));
+            if    address < 0
+            then
+              address := 0;
+            elsif address > NUM_REGS or address = NUM_REGS
+            then
+              address := NUM_REGS-1;
+            end if;
             mem(address) <=
               data_in(DATA_WIDTH*(chan+1)-1 downto DATA_WIDTH*chan);
           end if;

@@ -268,7 +268,7 @@ begin
 
   -- initialize
   zero <= (others => '0');
-  slv_read_ack(0)  <= data_mode;
+  slv_read_ack(0)  <= not data_mode;
   slv_write_ack(0) <= data_mode;
   write_address(0) <= 0;
   read_address(0)  <= 0;

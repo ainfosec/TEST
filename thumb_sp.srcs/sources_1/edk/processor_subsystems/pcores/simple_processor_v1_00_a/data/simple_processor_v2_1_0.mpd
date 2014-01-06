@@ -17,11 +17,9 @@ OPTION DESC = SIMPLE_PROCESSOR
 OPTION LONG_DESC = A decoder, ALU, and register set. Contains a buffer representing a slice of data memory which can be operated upon. Runs a single instruction per use. There is no instruction stack, and branch and jump instructions are translated into NOPs. A very limited set of the ARM ISA is implemented.
 OPTION ARCH_SUPPORT_MAP = (others=DEVELOPMENT)
 
-
 ## Bus Interfaces
 
 ## Generics for VHDL or Parameters for Verilog
-PARAMETER C_FAMILY = virtex6, DT = STRING
 PARAMETER NUM_CHANNELS = 32, DT = INTEGER, MIN_SIZE = 1, MAX_SIZE = 32
 
 ## Ports

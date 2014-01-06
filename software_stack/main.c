@@ -1,0 +1,84 @@
+#include "stack.h"
+
+unsigned char test_instructions[] = {
+  0xCA, 0x07, /* LSL i5 m d */
+  0xCA, 0x0F, /* LSR i5 m d */
+  0xCA, 0x17, /* ASR i5 m d */
+  0x53, 0x18, /* ADD m n d */
+  0x53, 0x1A, /* SUB m n d */
+  0xCA, 0x1D, /* ADD i3 n d */
+  0xCA, 0x1F, /* SUB i3 n d */
+  0xFF, 0x21, /* MOV d i8 */
+  0xFF, 0x29, /* CMP n i8 */
+  0xFF, 0x31, /* ADD d i8 */
+  0xFF, 0x39, /* SUB d i8 */
+  0x0A, 0x40, /* AND m d */
+  0x4A, 0x40, /* EOR m d */
+  0x8A, 0x40, /* LSL s d */
+  0xCA, 0x40, /* LSR s d */
+  0x0A, 0x41, /* ASR s d */
+  0x4A, 0x41, /* ADC m d */
+  0x8A, 0x41, /* SBC m d */
+  0xCA, 0x41, /* ROR s d */
+  0x0A, 0x42, /* TST n m */
+  0x4A, 0x42, /* NEG m d */
+  0x8A, 0x42, /* CMP n m */
+  0xCA, 0x42, /* CMN n m */
+  0x0A, 0x43, /* ORR m d */
+  0x4A, 0x43, /* MUL m d */
+  0x8A, 0x43, /* BIC n m */
+  0xCA, 0x43, /* MVN m d */
+  0xCA, 0x44, /* ADD h2 m d */
+  0xCA, 0x45, /* CMP h2 n m */
+  0xCA, 0x46, /* MOV h2 m d */
+  0x48, 0x47, /* BX h1 m 93 */ /* <------------ */ /* X */
+  0xC8, 0x47, /* LDR d i8 */
+  0xFF, 0x49, /* STR m n d */
+  0x53, 0x50, /* STRH m n d */
+  0x53, 0x52, /* STRB m n d */
+  0x53, 0x54, /* STRB m n d */
+  0x53, 0x56, /* LDRSB m n d */
+  0x53, 0x58, /* LDR m n d */
+  0x53, 0x5A, /* LDRH m n d */
+  0x53, 0x5C, /* LDRB m n d */
+  0x53, 0x5E, /* LDRSH m n d */
+  0xCA, 0x67, /* STR i5 n d */
+  0xCA, 0x6F, /* LDR i5 n d */
+  0xCA, 0x77, /* STRB i5 n d */
+  0xCA, 0x7F, /* LDRB i5 n d */
+  0xCA, 0x87, /* STRH i5 n d */
+  0xCA, 0x8F, /* LDRH i5 n d */
+  0xFF, 0x91, /* STR d i8 */
+  0xFF, 0x99, /* LDR d i8 */
+  0xFF, 0xA1, /* ADD-PC d i8 */
+  0xFF, 0xA9, /* ADD-SP d i8 */
+  0xFF, 0xB0, /* SUB-SP 1 i7 */
+  0xFF, 0xB5, /* PUSH f1 rl8 */
+  0xFF, 0xBD, /* POP f1 rl8 */
+  0xFF, 0xBE, /* BKPT i8 */
+  0xFF, 0xC1, /* STMIA n rl8 */
+  0xFF, 0xC9, /* LDMIA n rl8 */
+  0xFF, 0xDD, /* B_COND i8 */ /* <------------ */ /* CONDITIONAL */
+  0xFF, 0xDE, /* UNUSED */
+  0xFF, 0xDF, /* SWI i8 */
+  0xFF, 0xE7, /* B i8 */ /* <------------ */
+  0xFF, 0xEF, /* BLX i8 */ /* <------------ */ /* AND LINK */ /* X */
+  0xFF, 0xF7, /* BLXH i8 */ /* <------------ */ /* AND LINK */ /* X */ /* H */
+  0xFF, 0xFF  /* BL i8 */ /* <------------ */ /* AND LINK */
+};
+
+int main(int argc, char **argv)
+{
+  Stack *tester = newStack(test_instructions, 2);
+
+  printf (
+    "instruction 1:\n" "address: %d\n" "binary: 0x%04X\n"
+    "instruction 2:\n" "address: %d\n" "binary: 0x%04X\n",
+    (tester->trunk)->address, (tester->trunk)->binary,
+    ((tester->trunk)->next)->address, ((tester->trunk)->next)->binary
+    );
+
+  tester->free(tester);
+
+  return 0;
+}
